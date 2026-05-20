@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página não encontrada — Encontro Nacional dos Calções Pretos 2026</title>
+  <meta name="description" content="A página que você procura não foi encontrada.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#e1ad01">
+  <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
+  <link rel="stylesheet" href="css/shared.css">
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+
+    .err {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+    .err__card {
+      background: var(--branco);
+      border-radius: var(--raio);
+      box-shadow: var(--sombra-forte);
+      padding: 3rem 2.5rem;
+      text-align: center;
+      max-width: 560px;
+      width: 100%;
+    }
+    .err__code {
+      font-size: clamp(4.5rem, 14vw, 7rem);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--dourado);
+      margin-bottom: .5rem;
+    }
+    .err__title {
+      font-size: 1.5rem;
+      color: var(--texto-escuro);
+      margin-bottom: .75rem;
+    }
+    .err__sub {
+      color: var(--texto);
+      margin-bottom: 2rem;
+    }
+    .err__actions {
+      display: flex;
+      gap: .8rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .err__links {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--borda);
+      display: flex;
+      gap: 1.25rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      font-size: .9rem;
+    }
+    .err__links a {
+      color: var(--dourado-escuro);
+      font-weight: 600;
+    }
+    .err__links a:hover { text-decoration: underline; }
+
+    @media (max-width: 480px) {
+      .err__card { padding: 2rem 1.3rem; }
+      .err__actions .cta-button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="subpage-header">
+    <div class="subpage-header__inner container">
+      <a href="index.html" class="subpage-header__brand" aria-label="Encontro Nacional dos Calções Pretos 2026">
+        <img src="images/logos/esefex-logo.png" alt="Logo EsEFEx">
+        <span>Encontro Nacional 2026</span>
+      </a>
+      <a href="index.html" class="subpage-header__back">← Voltar ao site</a>
+    </div>
+  </header>
+
+  <main class="err">
+    <div class="err__card">
+      <div class="err__code" aria-hidden="true">404</div>
+      <h1 class="err__title">Página não encontrada</h1>
+      <p class="err__sub">O endereço que você acessou não existe ou foi movido. Verifique se o link está correto ou volte para a página inicial.</p>
+
+      <div class="err__actions">
+        <a href="index.html" class="cta-button">Página inicial</a>
+        <a href="inscricao.html" class="cta-button" style="background:var(--cinza-claro);color:var(--texto-escuro);box-shadow:none;">Inscreva-se</a>
+      </div>
+
+      <nav class="err__links" aria-label="Atalhos">
+        <a href="index.html#about">Sobre</a>
+        <a href="index.html#program">Programação</a>
+        <a href="index.html#produtos">Produtos</a>
+        <a href="index.html#contact">Contato</a>
+      </nav>
+    </div>
+  </main>
+
+  <footer class="subpage-footer">
+    <div class="container">
+      <p>&copy; 2026 Encontro Nacional dos Calções Pretos. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+</body>
+</html>

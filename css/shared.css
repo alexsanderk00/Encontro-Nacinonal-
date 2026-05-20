@@ -1,0 +1,261 @@
+/* ===================================================================
+   SHARED — Encontro Nacional dos Calções Pretos 2026
+   Tokens de tema, reset, acessibilidade e botão de marca.
+   Usado por todas as páginas (index, inscricao, loja, privacidade, 404).
+   =================================================================== */
+
+:root {
+  /* Cores da marca */
+  --dourado:        #e1ad01;
+  --dourado-claro:  #ffd700;
+  --dourado-escuro: #b88c00;
+  --grad-dourado:   linear-gradient(45deg, #e1ad01, #ffd700);
+  --grad-fundo:     linear-gradient(135deg, #e1ad01 0%, #ffd700 100%);
+
+  /* Texto */
+  --texto:          #333333;
+  --texto-escuro:   #111111;
+  --texto-claro:    #ffffff;
+
+  /* Superfícies */
+  --branco:         #ffffff;
+  --cinza-claro:    #f8f9fa;
+  --borda:          #dddddd;
+
+  /* Status */
+  --sucesso:        #1f9d55;
+  --erro:           #d80000;
+  --aviso:          #b88c00;
+
+  /* Forma */
+  --raio:           15px;
+  --raio-sm:        8px;
+  --raio-pill:      50px;
+  --sombra:         0 5px 20px rgba(0, 0, 0, .1);
+  --sombra-forte:   0 10px 30px rgba(0, 0, 0, .15);
+
+  /* Layout */
+  --container:      1200px;
+  --header-h:       80px;
+
+  /* Tipografia */
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --trans: .3s ease;
+}
+
+/* ── RESET ────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font);
+  line-height: 1.6;
+  color: var(--texto);
+  background: var(--grad-fundo);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font: inherit;
+}
+
+/* ── CONTAINER ────────────────────────────────────────────────── */
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ── SKIP LINK (acessibilidade) ───────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--dourado);
+  color: var(--texto-escuro);
+  padding: .6rem 1.5rem;
+  font-weight: 700;
+  border-radius: 0 0 8px 8px;
+  z-index: 99999;
+  transition: top .2s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ── SR-ONLY (conteúdo só para leitores de tela) ──────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── FOCO VISÍVEL (acessibilidade de teclado) ─────────────────── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--dourado-escuro);
+  outline-offset: 2px;
+}
+
+/* ── BOTÃO DE MARCA ───────────────────────────────────────────── */
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--grad-dourado);
+  color: var(--texto-claro);
+  padding: 15px 40px;
+  border-radius: var(--raio-pill);
+  font-weight: bold;
+  font-size: 1.1rem;
+  min-height: 44px;
+  box-shadow: 0 4px 15px rgba(225, 173, 1, .3);
+  transition: transform var(--trans), box-shadow var(--trans);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(225, 173, 1, .4);
+}
+
+.cta-button:disabled,
+.cta-button[aria-disabled="true"] {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── CABEÇALHO DAS SUB-PÁGINAS ────────────────────────────────── */
+.subpage-header {
+  background: var(--branco);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.subpage-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .7rem 0;
+}
+
+.subpage-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subpage-header__brand img {
+  height: 44px;
+  width: auto;
+}
+
+.subpage-header__brand span {
+  font-weight: bold;
+  color: var(--texto-escuro);
+  font-size: .95rem;
+  margin-left: 4px;
+}
+
+.subpage-header__back {
+  color: var(--dourado-escuro);
+  font-weight: 600;
+  font-size: .9rem;
+  white-space: nowrap;
+}
+
+.subpage-header__back:hover {
+  text-decoration: underline;
+}
+
+/* ── RODAPÉ DAS SUB-PÁGINAS ───────────────────────────────────── */
+.subpage-footer {
+  background: var(--branco);
+  text-align: center;
+  padding: 1.5rem 0;
+  margin-top: auto;
+}
+
+.subpage-footer p {
+  font-size: .85rem;
+  color: var(--texto);
+}
+
+.subpage-footer a {
+  color: var(--dourado-escuro);
+  font-weight: 600;
+}
+
+.subpage-footer a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .subpage-header__brand span { font-size: .8rem; }
+  .subpage-header__brand img { height: 36px; }
+}
+
+/* ── PREFERS-REDUCED-MOTION (WCAG 2.3.3) ──────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── CONTAINER RESPONSIVO ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  .container { padding: 0 15px; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 0 10px; }
+}

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscrição Confirmada — Encontro Nacional dos Calções Pretos 2026</title>
+  <meta name="description" content="Sua inscrição no Encontro Nacional dos Calções Pretos 2026 foi confirmada.">
+  <meta name="theme-color" content="#e1ad01">
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
+  <link rel="stylesheet" href="css/shared.css">
+  <style>
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+
+    .confirm {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+    .confirm__card {
+      background: var(--branco);
+      border-radius: var(--raio);
+      box-shadow: var(--sombra-forte);
+      padding: 3rem 2.5rem;
+      text-align: center;
+      max-width: 600px;
+      width: 100%;
+    }
+    .confirm__icon {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: #e6f5ec;
+      border: 3px solid var(--sucesso);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      font-size: 2.6rem;
+      color: var(--sucesso);
+      line-height: 1;
+    }
+    .confirm__title {
+      font-size: 2rem;
+      color: var(--texto-escuro);
+      margin-bottom: .5rem;
+    }
+    .confirm__sub {
+      color: var(--texto);
+      margin-bottom: 2rem;
+    }
+    .confirm__summary {
+      background: var(--cinza-claro);
+      border: 1px solid var(--borda);
+      border-radius: var(--raio-sm);
+      padding: 1.5rem;
+      text-align: left;
+      margin-bottom: 1.5rem;
+    }
+    .confirm__summary-title {
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: .82rem;
+      letter-spacing: .06em;
+      color: var(--texto);
+      margin-bottom: 1rem;
+    }
+    .confirm__row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .45rem 0;
+      font-size: .92rem;
+      border-bottom: 1px solid var(--borda);
+    }
+    .confirm__row:last-child { border-bottom: none; }
+    .confirm__row-label { color: var(--texto); }
+    .confirm__row-value { font-weight: 600; text-align: right; }
+    .confirm__row--total {
+      border-top: 2px solid var(--dourado);
+      border-bottom: none;
+      margin-top: .5rem;
+      padding-top: .75rem;
+      font-size: 1.15rem;
+      color: var(--texto-escuro);
+    }
+    .confirm__email-notice {
+      background: #fff6e0;
+      border: 1px solid var(--dourado);
+      border-radius: var(--raio-sm);
+      padding: .9rem 1.2rem;
+      font-size: .88rem;
+      color: var(--texto);
+      margin-bottom: 1.8rem;
+    }
+
+    @media (max-width: 768px) {
+      .confirm__card { padding: 2rem 1.3rem; }
+      .confirm__title { font-size: 1.6rem; }
+      .confirm__row { flex-wrap: wrap; gap: .2rem; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#confirmacao" class="skip-link">Pular para o conteúdo</a>
+
+  <!-- ── CABEÇALHO ── -->
+  <header class="subpage-header">
+    <div class="subpage-header__inner container">
+      <a href="index.html" class="subpage-header__brand" aria-label="Encontro Nacional dos Calções Pretos 2026">
+        <img src="images/logos/esefex-logo.png" alt="Logo EsEFEx">
+        <span>Encontro Nacional 2026</span>
+      </a>
+      <a href="index.html" class="subpage-header__back">← Voltar ao site</a>
+    </div>
+  </header>
+
+  <!-- ── CONFIRMAÇÃO ── -->
+  <main class="confirm" id="confirmacao">
+    <div class="confirm__card">
+      <div class="confirm__icon" aria-hidden="true">✓</div>
+      <h1 class="confirm__title">Inscrição Confirmada!</h1>
+      <p class="confirm__sub" id="confirmSub">Obrigado por se inscrever no Encontro Nacional dos Calções Pretos 2026.</p>
+
+      <div class="confirm__summary" id="confirmSummary">
+        <p class="confirm__summary-title">Resumo da inscrição</p>
+        <div id="summaryRows"></div>
+      </div>
+
+      <div class="confirm__email-notice">
+        Você receberá um email de confirmação com os detalhes da sua inscrição.
+        <strong>Caso não encontre na caixa de entrada, verifique a pasta de Spam / Lixo Eletrônico.</strong>
+      </div>
+
+      <a href="index.html" class="cta-button">← Voltar ao site</a>
+    </div>
+  </main>
+
+  <!-- ── RODAPÉ ── -->
+  <footer class="subpage-footer">
+    <div class="container">
+      <p>&copy; 2026 Encontro Nacional dos Calções Pretos &middot;
+         <a href="privacidade.html">Política de Privacidade</a></p>
+    </div>
+  </footer>
+
+  <script>
+    'use strict';
+    /* TTL de 30 min — descarta dados antigos. DOM via createElement (sem innerHTML). */
+    const TTL_MS = 30 * 60 * 1000;
+    const raw = sessionStorage.getItem('inscricao_data');
+    const data = raw ? JSON.parse(raw) : null;
+    const expirado = data && data.ts && (Date.now() - data.ts > TTL_MS);
+
+    const summaryRows = document.getElementById('summaryRows');
+    const confirmSub = document.getElementById('confirmSub');
+
+    function fmtBRL(n) { return 'R$ ' + Number(n || 0).toFixed(2).replace('.', ','); }
+
+    function row(label, value, isTotal) {
+      const div = document.createElement('div');
+      div.className = 'confirm__row' + (isTotal ? ' confirm__row--total' : '');
+      const l = document.createElement('span');
+      l.className = 'confirm__row-label';
+      l.textContent = label;
+      const v = document.createElement('span');
+      v.className = 'confirm__row-value';
+      v.textContent = value;
+      div.appendChild(l);
+      div.appendChild(v);
+      return div;
+    }
+
+    if (data && !expirado) {
+      const primeiroNome = String(data.nome || '').split(' ')[0] || '';
+      confirmSub.textContent = primeiroNome
+        ? 'Obrigado, ' + primeiroNome + '! Sua inscrição no Encontro Nacional dos Calções Pretos 2026 foi confirmada.'
+        : 'Sua inscrição no Encontro Nacional dos Calções Pretos 2026 foi confirmada.';
+
+      if (data.nome) summaryRows.appendChild(row('Nome', data.nome));
+      if (data.email) summaryRows.appendChild(row('Email', data.email));
+
+      (data.items || []).forEach(function (item) {
+        const sub = (item.preco || 0) * (item.quantidade || 0);
+        summaryRows.appendChild(row(item.tipo + ' × ' + item.quantidade, sub === 0 ? 'Isento' : fmtBRL(sub)));
+      });
+
+      summaryRows.appendChild(row('Total', fmtBRL(data.total), true));
+      if (data.paymentId) summaryRows.appendChild(row('Código da inscrição', '#' + data.paymentId));
+
+      sessionStorage.removeItem('inscricao_data');
+    } else {
+      if (expirado) sessionStorage.removeItem('inscricao_data');
+      const summary = document.getElementById('confirmSummary');
+      summary.textContent = '';
+      const p1 = document.createElement('p');
+      p1.style.cssText = 'color:var(--texto);';
+      p1.textContent = 'Não encontramos os dados da sua inscrição nesta sessão.';
+      const p2 = document.createElement('p');
+      p2.style.cssText = 'color:var(--texto);margin-top:.5rem;';
+      p2.textContent = 'Se você concluiu a inscrição, a confirmação foi enviada para o seu email.';
+      summary.appendChild(p1);
+      summary.appendChild(p2);
+    }
+  </script>
+</body>
+</html>

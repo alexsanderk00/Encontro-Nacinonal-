@@ -1,1 +1,682 @@
-/* Estilos adicionais */ 
+/* ===================================================================
+   HOMEPAGE — Encontro Nacional dos Calções Pretos 2026
+   Estilos da página inicial. Tokens e reset ficam em shared.css.
+   =================================================================== */
+
+/* ── HEADER / NAVEGAÇÃO ───────────────────────────────────────── */
+.site-header {
+  background: var(--branco);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .1);
+  transition: box-shadow var(--trans);
+}
+
+.site-header.scrolled {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: .8rem 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.logo img {
+  height: 52px;
+  width: auto;
+}
+
+.logo__text {
+  font-weight: bold;
+  font-size: 1rem;
+  color: var(--texto-escuro);
+  margin-left: 8px;
+  line-height: 1.2;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.8rem;
+}
+
+.nav-links a {
+  color: var(--texto-escuro);
+  font-weight: 500;
+  transition: color var(--trans);
+}
+
+.nav-links a:hover,
+.nav-links a:focus-visible {
+  color: var(--dourado-escuro);
+}
+
+.mobile-menu-toggle {
+  display: none;
+  font-size: 1.6rem;
+  color: var(--texto-escuro);
+  padding: .4rem;
+  line-height: 1;
+}
+
+.mobile-menu-toggle:hover {
+  color: var(--dourado-escuro);
+}
+
+/* ── HERO ─────────────────────────────────────────────────────── */
+.hero {
+  min-height: calc(100vh - var(--header-h));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1rem;
+  background: url('../images/banner-encontro.png') center center / cover no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero__content {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  animation: fadeInUp 1s ease-out;
+}
+
+.hero__banner {
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.hero__title {
+  color: var(--texto-escuro);
+  font-size: 3.4rem;
+  line-height: 1.15;
+  text-shadow: 2px 2px 8px #fff, 0 1px 0 #fff;
+  pointer-events: auto;
+}
+
+.hero__overlay .cta-button {
+  pointer-events: auto;
+}
+
+/* ── SEÇÕES GENÉRICAS ─────────────────────────────────────────── */
+.section {
+  padding: 5rem 0;
+  background: var(--branco);
+  scroll-margin-top: 100px;
+}
+
+.section--alt {
+  background: var(--cinza-claro);
+}
+
+.section-title {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  color: var(--texto-escuro);
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: var(--grad-dourado);
+  border-radius: 2px;
+}
+
+/* ── SOBRE ────────────────────────────────────────────────────── */
+.about-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.about-text {
+  font-size: 1.1rem;
+  line-height: 1.8;
+}
+
+.about-text p {
+  text-align: justify;
+  margin-bottom: 1rem;
+}
+
+.about-text p:last-child {
+  margin-bottom: 0;
+}
+
+.about-image img {
+  margin: 0 auto;
+  max-height: 460px;
+  width: auto;
+  border-radius: var(--raio);
+}
+
+/* ── INFORMAÇÕES DO EVENTO ────────────────────────────────────── */
+.event-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.info-card {
+  background: var(--branco);
+  padding: 2rem;
+  border-radius: var(--raio);
+  text-align: center;
+  box-shadow: var(--sombra);
+  transition: transform var(--trans);
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
+}
+
+.info-card h3 {
+  color: var(--texto-escuro);
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.info-card p {
+  font-size: 1.1rem;
+}
+
+/* ── PROGRAMAÇÃO ──────────────────────────────────────────────── */
+.program-day {
+  background: var(--branco);
+  border-radius: var(--raio);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+
+.day-header {
+  background: var(--grad-fundo);
+  color: var(--texto-escuro);
+  padding: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.program-item {
+  display: flex;
+  gap: 2rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.program-item:last-child {
+  border-bottom: none;
+}
+
+.program-item .time {
+  font-weight: bold;
+  color: var(--dourado-escuro);
+  min-width: 100px;
+}
+
+.program-item .activity {
+  flex: 1;
+}
+
+.program-item .activity h4 {
+  color: var(--texto-escuro);
+}
+
+/* ── INSCRIÇÃO ────────────────────────────────────────────────── */
+.registration-card {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.registration-card ul {
+  text-align: left;
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+  font-size: 1.1rem;
+}
+
+.registration-card ul li {
+  margin-bottom: .4rem;
+  padding-left: 1.4rem;
+  position: relative;
+}
+
+.registration-card ul li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--dourado-escuro);
+  font-weight: bold;
+}
+
+.registration-card .prazo {
+  margin-bottom: 1.5rem;
+}
+
+/* ── PRODUTOS OFICIAIS ────────────────────────────────────────── */
+.produtos-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+  justify-content: center;
+}
+
+.produto {
+  background: var(--branco);
+  border-radius: var(--raio);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, .08);
+  padding: 2rem;
+  text-align: center;
+  max-width: 320px;
+  flex: 1 1 260px;
+}
+
+.produto h3 {
+  color: var(--texto-escuro);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.produto__img {
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: var(--raio-sm);
+  margin: 0 auto 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  cursor: zoom-in;
+}
+
+.produto__tag {
+  display: inline-block;
+  margin-top: .3rem;
+  padding: .35rem 1.1rem;
+  background: var(--cinza-claro);
+  color: var(--aviso);
+  border: 1px solid var(--dourado);
+  border-radius: var(--raio-pill);
+  font-weight: 700;
+  font-size: .9rem;
+}
+
+.produtos-aviso {
+  text-align: center;
+  margin-top: 2.5rem;
+  font-size: 1.05rem;
+  color: var(--texto);
+}
+
+/* ── GALERIA ──────────────────────────────────────────────────── */
+.galeria-carrosseis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+  justify-content: center;
+}
+
+.galeria-carrossel-box {
+  text-align: center;
+}
+
+.galeria-carrossel-box h3 {
+  color: var(--texto-escuro);
+  margin-bottom: 1rem;
+}
+
+.carousel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.carousel-img {
+  width: 350px;
+  height: 250px;
+  max-width: 78vw;
+  object-fit: cover;
+  border-radius: var(--raio-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  cursor: zoom-in;
+}
+
+.carousel-btn {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  background: var(--dourado);
+  color: var(--texto-claro);
+  border-radius: 50%;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--trans), color var(--trans);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.carousel-btn:hover {
+  background: var(--dourado-claro);
+  color: var(--dourado-escuro);
+}
+
+/* ── CONTATO ──────────────────────────────────────────────────── */
+.contact-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.contact-card {
+  background: var(--branco);
+  padding: 2rem;
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+
+.contact-card h3 {
+  color: var(--texto-escuro);
+  margin-bottom: 1rem;
+}
+
+.contact-card p {
+  margin-bottom: 1rem;
+}
+
+.contact-card p:last-child {
+  margin-bottom: 0;
+}
+
+.contact-card a {
+  color: var(--dourado-escuro);
+  font-weight: 600;
+}
+
+.contact-card a:hover {
+  text-decoration: underline;
+}
+
+/* ── RODAPÉ ───────────────────────────────────────────────────── */
+.site-footer {
+  background: var(--branco);
+  color: var(--texto-escuro);
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.site-footer a {
+  color: var(--dourado-escuro);
+  font-weight: 600;
+}
+
+.site-footer a:hover {
+  text-decoration: underline;
+}
+
+.footer-links {
+  margin-top: .5rem;
+  font-size: .9rem;
+}
+
+/* ── ANIMAÇÃO DE ENTRADA ──────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Aplicada só quando o JS está ativo (fallback sem JS: conteúdo visível). */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity .8s ease-out, transform .8s ease-out;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── MODAL DE IMAGEM ──────────────────────────────────────────── */
+.modal-img-bg {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, .85);
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-img-bg.active {
+  display: flex;
+}
+
+.modal-img-bg img {
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 12px;
+  background: var(--branco);
+  object-fit: contain;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+}
+
+.modal-close {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  font-size: 2.5rem;
+  line-height: 1;
+  color: #fff;
+  z-index: 10000;
+}
+
+.modal-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  font-size: 1.6rem;
+  background: var(--dourado);
+  color: #fff;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-nav.show {
+  display: flex;
+}
+
+.modal-nav--prev { left: 20px; }
+.modal-nav--next { right: 20px; }
+
+/* ===================================================================
+   RESPONSIVO
+   =================================================================== */
+
+/* ── Tablets e abaixo ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .program-item {
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  .program-item .time {
+    min-width: auto;
+  }
+
+  .about-content,
+  .contact-content {
+    gap: 2.5rem;
+  }
+}
+
+/* ── Mobile ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: block;
+  }
+
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    background: var(--dourado);
+    padding: .5rem 0;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, .15);
+  }
+
+  .nav-links.active {
+    display: flex;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: .8rem 2rem;
+    color: var(--texto-escuro);
+    border-bottom: 1px solid rgba(255, 255, 255, .25);
+  }
+
+  .nav-links a:last-child {
+    border-bottom: none;
+  }
+
+  .logo img {
+    height: 40px;
+  }
+
+  .logo__text {
+    font-size: .85rem;
+    margin-left: 4px;
+  }
+
+  .hero__title {
+    font-size: 2rem;
+  }
+
+  .section {
+    padding: 3rem 0;
+  }
+
+  .section-title {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .about-content,
+  .contact-content {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .about-text {
+    font-size: 1rem;
+  }
+
+  .about-image img {
+    max-height: 320px;
+  }
+
+  .produtos-lista {
+    gap: 1.5rem;
+  }
+
+  .produto {
+    max-width: 100%;
+  }
+
+  .carousel-img {
+    width: 300px;
+    height: 210px;
+  }
+
+  .carousel-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .modal-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 1.3rem;
+  }
+
+  .modal-nav--prev { left: 8px; }
+  .modal-nav--next { right: 8px; }
+}
+
+/* ── Telas pequenas ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .hero__title {
+    font-size: 1.6rem;
+  }
+
+  .section-title {
+    font-size: 1.6rem;
+  }
+
+  .info-card,
+  .produto,
+  .contact-card {
+    padding: 1.5rem;
+  }
+
+  .carousel-img {
+    width: 240px;
+    height: 175px;
+  }
+
+  .logo__text {
+    font-size: .75rem;
+  }
+}
+
+/* ── Mobile em paisagem ───────────────────────────────────────── */
+@media (max-width: 768px) and (orientation: landscape) {
+  .hero {
+    min-height: auto;
+    padding: 3rem 1rem;
+  }
+}

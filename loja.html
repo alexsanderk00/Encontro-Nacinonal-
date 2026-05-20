@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loja Oficial — Encontro Nacional dos Calções Pretos 2026</title>
+  <meta name="description" content="Loja oficial do Encontro Nacional dos Calções Pretos 2026.">
+  <meta name="theme-color" content="#e1ad01">
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
+  <link rel="stylesheet" href="css/shared.css">
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+
+    .sub-hero {
+      background: var(--grad-fundo);
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+    .sub-hero h1 { color: var(--texto-escuro); font-size: 2.6rem; }
+    .sub-hero p { color: var(--texto-escuro); max-width: 620px; margin: .8rem auto 0; }
+
+    .bloco { padding: 3rem 0; background: var(--branco); }
+    .bloco--alt { background: var(--cinza-claro); }
+    .bloco__title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: var(--texto-escuro);
+      margin-bottom: 2rem;
+    }
+
+    /* ── LOJA EM BREVE ── */
+    .loja-em-breve {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+    .loja-em-breve__card {
+      background: var(--branco);
+      border-radius: var(--raio);
+      box-shadow: var(--sombra-forte);
+      padding: 3rem 2.5rem;
+      text-align: center;
+      max-width: 560px;
+    }
+    .loja-em-breve__icon { font-size: 3.4rem; margin-bottom: 1rem; }
+    .loja-em-breve__card h2 { color: var(--texto-escuro); margin-bottom: .7rem; }
+    .loja-em-breve__card p { color: var(--texto); margin-bottom: 1.6rem; }
+
+    /* ── PRODUTOS ── */
+    .prod-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.8rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .prod-card {
+      background: var(--branco);
+      border: 2px solid var(--borda);
+      border-radius: var(--raio);
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: var(--sombra);
+    }
+    .prod-card--ativa { border-color: var(--dourado); }
+    .prod-card--indisponivel { opacity: .55; }
+    .prod-card__img {
+      width: 180px;
+      height: 180px;
+      max-width: 100%;
+      object-fit: cover;
+      border-radius: var(--raio-sm);
+      margin: 0 auto 1rem;
+    }
+    .prod-card__name { color: var(--texto-escuro); font-size: 1.15rem; margin-bottom: .4rem; }
+    .prod-card__price {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--texto-escuro);
+      margin-bottom: .8rem;
+    }
+    .prod-card__size { margin-bottom: .9rem; }
+    .prod-card__size label {
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--texto-escuro);
+    }
+    .prod-card__size select {
+      margin-left: .4rem;
+      padding: .35rem .5rem;
+      border: 1.5px solid var(--borda);
+      border-radius: var(--raio-sm);
+      font-size: .95rem;
+      font-family: inherit;
+    }
+
+    /* ── SELETOR DE QUANTIDADE ── */
+    .qty-selector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .8rem;
+    }
+    .qty-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--dourado);
+      color: #fff;
+      font-size: 1.4rem;
+      line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--trans);
+      touch-action: manipulation;
+    }
+    .qty-btn:hover:not(:disabled) { background: var(--dourado-escuro); }
+    .qty-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .qty-value {
+      width: 52px; text-align: center;
+      font-size: 1.2rem; font-weight: 700;
+      border: 1px solid var(--borda);
+      border-radius: var(--raio-sm);
+      padding: .4rem;
+      background: var(--branco);
+      color: var(--texto-escuro);
+    }
+
+    /* ── RESUMO ── */
+    .order-summary {
+      display: none;
+      max-width: 560px;
+      margin: 2.2rem auto 0;
+      background: var(--cinza-claro);
+      border: 1px solid var(--borda);
+      border-radius: var(--raio);
+      padding: 1.5rem;
+    }
+    .order-summary.visible { display: block; }
+    .order-summary h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--texto-escuro); }
+    .order-summary__item {
+      display: flex; justify-content: space-between;
+      padding: .45rem 0; font-size: .95rem;
+      border-bottom: 1px solid var(--borda);
+    }
+    .order-summary__total {
+      display: flex; justify-content: space-between;
+      margin-top: .9rem; padding-top: .9rem;
+      border-top: 2px solid var(--dourado);
+      font-size: 1.25rem; font-weight: 700;
+      color: var(--texto-escuro);
+    }
+
+    /* ── SEÇÕES CONDICIONAIS ── */
+    .form-section, .payment-section { display: none; }
+    .form-section.visible, .payment-section.visible { display: block; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.2rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group--full { grid-column: 1 / -1; }
+    .form-group label {
+      font-weight: 600; margin-bottom: .35rem;
+      color: var(--texto-escuro); font-size: .92rem;
+    }
+    .form-group .req { color: var(--erro); }
+    .form-group input, .form-group textarea {
+      padding: .7rem .8rem;
+      border: 1.5px solid var(--borda);
+      border-radius: var(--raio-sm);
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--branco);
+      color: var(--texto);
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--dourado);
+    }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .lgpd-check { flex-direction: row; align-items: flex-start; gap: .6rem; }
+    .lgpd-check input {
+      width: 20px; height: 20px;
+      flex-shrink: 0; margin-top: .15rem;
+      accent-color: var(--dourado);
+    }
+    .lgpd-check span { font-size: .9rem; }
+    .lgpd-check a { color: var(--dourado-escuro); font-weight: 600; text-decoration: underline; }
+
+    .msg {
+      display: none;
+      max-width: 720px;
+      margin: 1.2rem auto 0;
+      padding: .8rem 1rem;
+      border-radius: var(--raio-sm);
+      font-size: .92rem;
+      text-align: center;
+    }
+    .msg.visible { display: block; }
+    .msg--error { background: #fdeaea; color: var(--erro); border: 1px solid var(--erro); }
+
+    #payment-brick-container { max-width: 600px; margin: 0 auto; }
+    .payment-section__sub { text-align: center; color: var(--texto); margin-bottom: 1.5rem; font-size: .95rem; }
+
+    /* ── MODAIS ── */
+    .modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0, 0, 0, .7);
+      align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .modal.visible { display: flex; }
+    .modal__card {
+      background: var(--branco);
+      border-radius: var(--raio);
+      padding: 2rem 1.8rem;
+      max-width: 460px; width: 100%;
+      text-align: center;
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal__card h2 { color: var(--texto-escuro); margin-bottom: .6rem; font-size: 1.4rem; }
+    .modal__card p { font-size: .94rem; margin-bottom: .6rem; }
+    .modal__box {
+      background: var(--cinza-claro);
+      border: 1px solid var(--borda);
+      border-radius: var(--raio-sm);
+      padding: 1rem; margin: 1rem 0;
+      text-align: left; font-size: .9rem;
+    }
+    .modal__warning {
+      background: #fff6e0;
+      border: 1px solid var(--dourado);
+      border-radius: var(--raio-sm);
+      padding: 1rem; margin: 1rem 0;
+      font-size: .9rem; text-align: left;
+    }
+    .modal__close {
+      margin-top: 1.2rem;
+      background: var(--dourado);
+      color: #fff;
+      padding: .65rem 1.8rem;
+      border-radius: var(--raio-pill);
+      font-weight: 700;
+    }
+    .modal__close:hover { background: var(--dourado-escuro); }
+
+    .pix-qr {
+      width: 220px; height: 220px;
+      margin: 1rem auto;
+      border: 1px solid var(--borda);
+      border-radius: var(--raio-sm);
+      background: #fff;
+    }
+    .pix-code {
+      word-break: break-all; font-size: .72rem;
+      background: var(--cinza-claro);
+      padding: .7rem;
+      border-radius: var(--raio-sm);
+      border: 1px dashed var(--borda);
+      max-height: 80px; overflow-y: auto;
+    }
+    .pix-copy-btn {
+      margin-top: .7rem;
+      background: var(--dourado);
+      color: #fff;
+      padding: .5rem 1.6rem;
+      border-radius: var(--raio-pill);
+      font-weight: 600;
+    }
+    .pix-countdown {
+      font-size: 1.7rem; font-weight: 700;
+      color: var(--dourado-escuro);
+      margin-top: .4rem;
+    }
+
+    .processing-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(255, 255, 255, .93);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1rem;
+    }
+    .processing-overlay.visible { display: flex; }
+    .processing-overlay p { font-weight: 600; color: var(--texto-escuro); }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 5px solid var(--borda);
+      border-top-color: var(--dourado);
+      border-radius: 50%;
+      animation: girar 1s linear infinite;
+    }
+    @keyframes girar { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      .sub-hero h1 { font-size: 2rem; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#conteudo" class="skip-link">Pular para o conteúdo</a>
+
+  <!-- ── CABEÇALHO ── -->
+  <header class="subpage-header">
+    <div class="subpage-header__inner container">
+      <a href="index.html" class="subpage-header__brand" aria-label="Encontro Nacional dos Calções Pretos 2026">
+        <img src="images/logos/esefex-logo.png" alt="Logo EsEFEx">
+        <span>Encontro Nacional 2026</span>
+      </a>
+      <a href="index.html" class="subpage-header__back">← Voltar ao site</a>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <section class="sub-hero">
+      <h1>Loja Oficial</h1>
+      <p>Produtos oficiais do Encontro Nacional dos Calções Pretos 2026.</p>
+    </section>
+
+    <!-- ── LOJA EM BREVE (exibida quando LOJA_ABERTA = false) ── -->
+    <div class="loja-em-breve" id="lojaEmBreve">
+      <div class="loja-em-breve__card">
+        <div class="loja-em-breve__icon" aria-hidden="true">🛒</div>
+        <h2>Loja em breve</h2>
+        <p>Os produtos oficiais estarão disponíveis para compra em breve, com pagamento por Pix ou cartão. Fique de olho!</p>
+        <a href="index.html" class="cta-button">← Voltar ao site</a>
+      </div>
+    </div>
+
+    <!-- ── CONTEÚDO DA LOJA (exibido quando LOJA_ABERTA = true) ── -->
+    <div id="lojaConteudo" hidden>
+      <section class="bloco">
+        <div class="container">
+          <h2 class="bloco__title">Escolha seus produtos</h2>
+          <div class="prod-grid" id="prodGrid">
+            <div class="prod-card" data-produto="camiseta_m">
+              <img class="prod-card__img" src="images/produtos/camiseta1.jpg" alt="Camiseta Masculina">
+              <h3 class="prod-card__name">Camiseta Masculina</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="prod-card__size">
+                <label>Tamanho:
+                  <select class="prod-size" aria-label="Tamanho da Camiseta Masculina"></select>
+                </label>
+              </div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
+            <div class="prod-card" data-produto="camiseta_f">
+              <img class="prod-card__img" src="images/produtos/camiseta2.jpeg" alt="Camiseta Feminina">
+              <h3 class="prod-card__name">Camiseta Feminina</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="prod-card__size">
+                <label>Tamanho:
+                  <select class="prod-size" aria-label="Tamanho da Camiseta Feminina"></select>
+                </label>
+              </div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
+            <div class="prod-card" data-produto="camiseta_inf">
+              <img class="prod-card__img" src="images/produtos/camiseta3.jpg" alt="Camiseta Infantil">
+              <h3 class="prod-card__name">Camiseta Infantil</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="prod-card__size">
+                <label>Tamanho:
+                  <select class="prod-size" aria-label="Tamanho da Camiseta Infantil"></select>
+                </label>
+              </div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
+            <div class="prod-card" data-produto="garrafa">
+              <img class="prod-card__img" src="images/produtos/garrafa1.jpeg" alt="Garrafa">
+              <h3 class="prod-card__name">Garrafa</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
+            <div class="prod-card" data-produto="moeda">
+              <img class="prod-card__img" src="images/produtos/moeda1.png" alt="Moeda comemorativa">
+              <h3 class="prod-card__name">Moeda</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="order-summary" id="orderSummary" aria-live="polite">
+            <h3>Resumo do pedido</h3>
+            <div id="orderItems"></div>
+            <div class="order-summary__total">
+              <span>Total</span>
+              <span id="orderTotal">R$ 0,00</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bloco bloco--alt form-section" id="formSection">
+        <div class="container">
+          <h2 class="bloco__title">Seus dados</h2>
+          <form id="lojaForm" class="form-grid" autocomplete="on" novalidate>
+            <div class="form-group form-group--full">
+              <label for="nome">Nome completo <span class="req">*</span></label>
+              <input type="text" id="nome" name="nome" required placeholder="Seu nome completo">
+            </div>
+            <div class="form-group">
+              <label for="email">Email <span class="req">*</span></label>
+              <input type="email" id="email" name="email" required placeholder="seu@email.com">
+            </div>
+            <div class="form-group">
+              <label for="cpf">CPF <span class="req">*</span></label>
+              <input type="text" id="cpf" name="cpf" required placeholder="000.000.000-00" maxlength="14" inputmode="numeric">
+            </div>
+            <div class="form-group form-group--full">
+              <label for="telefone">Telefone <span class="req">*</span></label>
+              <input type="text" id="telefone" name="telefone" required placeholder="(00) 00000-0000" maxlength="15" inputmode="numeric">
+            </div>
+            <div class="form-group form-group--full">
+              <label for="observacoes">Observações (retirada, entrega, etc.)</label>
+              <textarea id="observacoes" name="observacoes" placeholder="Opcional"></textarea>
+            </div>
+            <div class="form-group form-group--full lgpd-check">
+              <input type="checkbox" id="lgpdConsent" required>
+              <span>Li e aceito a <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> e autorizo o tratamento dos meus dados pessoais para a realização deste pedido, conforme a LGPD.</span>
+            </div>
+          </form>
+          <div class="msg msg--error" id="formError" role="alert"></div>
+        </div>
+      </section>
+
+      <section class="bloco payment-section" id="paymentSection">
+        <div class="container">
+          <h2 class="bloco__title">Pagamento</h2>
+          <p class="payment-section__sub">Escolha a forma de pagamento. Aceitamos Pix, cartão de crédito e cartão de débito.</p>
+          <div id="payment-brick-container"></div>
+          <div class="msg msg--error" id="paymentError" role="alert"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ── MODAL PIX ── -->
+  <div class="modal" id="pixModal">
+    <div class="modal__card">
+      <h2>Pague com Pix</h2>
+      <p>Escaneie o QR Code com o app do seu banco ou copie o código abaixo.</p>
+      <img class="pix-qr" id="pixQrImage" alt="QR Code do Pix">
+      <p style="font-weight:600;margin-bottom:.3rem;">Pix Copia e Cola</p>
+      <div class="pix-code" id="pixCode"></div>
+      <button type="button" class="pix-copy-btn" id="pixCopyBtn">Copiar código</button>
+      <p style="margin-top:1rem;margin-bottom:0;">O QR Code expira em:</p>
+      <div class="pix-countdown" id="pixCountdown">30:00</div>
+      <p style="font-size:.82rem;color:var(--texto);margin-top:.8rem;">Assim que o pagamento for confirmado, esta página avança automaticamente.</p>
+    </div>
+  </div>
+
+  <!-- ── MODAL EM ANÁLISE ── -->
+  <div class="modal" id="reviewModal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+    <div class="modal__card">
+      <h2 id="reviewTitle">Pagamento em análise</h2>
+      <p>Seu pagamento foi recebido, mas precisa ser revisado pelo Mercado Pago.</p>
+      <div class="modal__box">
+        O sistema antifraude do Mercado Pago está analisando a transação. Pode levar até <strong>2 dias úteis</strong>. Você receberá um email assim que for aprovado.
+      </div>
+      <div class="modal__warning">
+        <strong>⚠ Não tente pagar novamente</strong> com este cartão — isso pode gerar cobranças duplicadas. Se preferir, use <strong>Pix</strong>.
+      </div>
+      <button type="button" class="modal__close" id="reviewModalClose">Entendi</button>
+    </div>
+  </div>
+
+  <!-- ── MODAL RECUSADO ── -->
+  <div class="modal" id="rejectedModal" role="dialog" aria-modal="true" aria-labelledby="rejectedTitle">
+    <div class="modal__card">
+      <h2 id="rejectedTitle">Pagamento não aprovado</h2>
+      <p>O Mercado Pago não aprovou a transação.</p>
+      <div class="modal__box">
+        <strong>Motivo:</strong> <span id="rejectedReasonText">Pagamento não autorizado.</span>
+      </div>
+      <p style="font-size:.88rem;"><strong>Nenhum valor foi cobrado.</strong> Tente novamente com outro cartão ou use Pix.</p>
+      <button type="button" class="modal__close" id="rejectedModalClose">Tentar novamente</button>
+    </div>
+  </div>
+
+  <!-- ── OVERLAY DE PROCESSAMENTO ── -->
+  <div class="processing-overlay" id="processingOverlay">
+    <div class="spinner"></div>
+    <p>Processando, aguarde...</p>
+  </div>
+
+  <!-- ── RODAPÉ ── -->
+  <footer class="subpage-footer">
+    <div class="container">
+      <p>&copy; 2026 Encontro Nacional dos Calções Pretos &middot;
+         <a href="privacidade.html">Política de Privacidade</a></p>
+    </div>
+  </footer>
+
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <script>
+    'use strict';
+
+    /* ================================================================
+       LOJA — mude para true e preencha os preços em PRODUTOS para abrir.
+       Lembre-se de também preencher PRECOS_PRODUTOS no backend.gs.
+    ================================================================ */
+    const LOJA_ABERTA = false;
+
+    const CONFIG = {
+      MP_PUBLIC_KEY: 'APP_USR-b92e96c0-57da-4e12-9a44-da4cdb69d3b1',
+      BACKEND_URL: 'https://script.google.com/macros/s/AKfycbyrVIrMX1EjB6DbDnCLBZ1B73IM3veQNFTWz8lhfQ3_9H-lvIUfNkCf07wsP41sRKPS/exec'
+    };
+
+    /* Produtos — os nomes devem ser idênticos a PRECOS_PRODUTOS no backend.gs.
+       Preencha os preços (em reais) quando for abrir a loja. */
+    const PRODUTOS = {
+      camiseta_m:   { name: 'Camiseta Masculina', price: 0, tamanhos: ['P', 'M', 'G', 'GG'] },
+      camiseta_f:   { name: 'Camiseta Feminina',  price: 0, tamanhos: ['P', 'M', 'G', 'GG'] },
+      camiseta_inf: { name: 'Camiseta Infantil',  price: 0, tamanhos: ['2', '4', '6', '8', '10'] },
+      garrafa:      { name: 'Garrafa',            price: 0 },
+      moeda:        { name: 'Moeda',              price: 0 }
+    };
+    const MAX_POR_PRODUTO = 20;
+
+    /* ================================================================
+       Se a loja estiver fechada, mantém o aviso "Loja em breve".
+    ================================================================ */
+    if (!LOJA_ABERTA) {
+      // Nada a fazer — #lojaEmBreve já está visível e #lojaConteudo oculto.
+    } else {
+      document.getElementById('lojaEmBreve').hidden = true;
+      document.getElementById('lojaConteudo').hidden = false;
+      initLoja();
+    }
+
+    function initLoja() {
+      const state = {
+        quantities: {},
+        total: 0,
+        brickController: null,
+        pixCheckInterval: null,
+        pixCountdownInterval: null
+      };
+      Object.keys(PRODUTOS).forEach(function (k) { state.quantities[k] = 0; });
+
+      const orderSummary  = document.getElementById('orderSummary');
+      const orderItems    = document.getElementById('orderItems');
+      const orderTotal    = document.getElementById('orderTotal');
+      const formSection   = document.getElementById('formSection');
+      const paymentSection = document.getElementById('paymentSection');
+      const formEl        = document.getElementById('lojaForm');
+      const formError     = document.getElementById('formError');
+      const paymentError  = document.getElementById('paymentError');
+      const overlay       = document.getElementById('processingOverlay');
+      const cpfInput      = document.getElementById('cpf');
+
+      function fmtBRL(n) { return 'R$ ' + Number(n || 0).toFixed(2).replace('.', ','); }
+      function el(tag, cls, text) {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text !== undefined) e.textContent = text;
+        return e;
+      }
+      function showError(elm, msg) { elm.textContent = msg; elm.classList.add('visible'); }
+      function hideError(elm) { elm.textContent = ''; elm.classList.remove('visible'); }
+      function temItens() {
+        return Object.keys(state.quantities).some(function (k) { return state.quantities[k] > 0; });
+      }
+
+      /* ── Renderiza preços, tamanhos e disponibilidade dos cards ── */
+      document.querySelectorAll('.prod-card').forEach(function (card) {
+        const key = card.dataset.produto;
+        const prod = PRODUTOS[key];
+        const priceEl = card.querySelector('[data-price]');
+        const sizeSel = card.querySelector('.prod-size');
+        const disponivel = prod.price > 0;
+
+        priceEl.textContent = disponivel ? fmtBRL(prod.price) : 'Em breve';
+        if (sizeSel && prod.tamanhos) {
+          prod.tamanhos.forEach(function (t) {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            sizeSel.appendChild(opt);
+          });
+        }
+        if (!disponivel) {
+          card.classList.add('prod-card--indisponivel');
+          card.querySelectorAll('.qty-btn').forEach(function (b) { b.disabled = true; });
+        }
+      });
+
+      /* ── Seletores de quantidade ── */
+      document.querySelectorAll('.prod-card').forEach(function (card) {
+        const key = card.dataset.produto;
+        if (PRODUTOS[key].price <= 0) return;
+        const minus = card.querySelector('.qty-minus');
+        const plus  = card.querySelector('.qty-plus');
+        const display = card.querySelector('.qty-value');
+
+        plus.addEventListener('click', function () {
+          if (state.quantities[key] >= MAX_POR_PRODUTO) return;
+          state.quantities[key]++;
+          display.value = state.quantities[key];
+          minus.disabled = false;
+          card.classList.add('prod-card--ativa');
+          updateOrder();
+        });
+        minus.addEventListener('click', function () {
+          if (state.quantities[key] <= 0) return;
+          state.quantities[key]--;
+          display.value = state.quantities[key];
+          minus.disabled = state.quantities[key] === 0;
+          card.classList.toggle('prod-card--ativa', state.quantities[key] > 0);
+          updateOrder();
+        });
+      });
+
+      function collectItems() {
+        const items = [];
+        document.querySelectorAll('.prod-card').forEach(function (card) {
+          const key = card.dataset.produto;
+          const qty = state.quantities[key];
+          if (qty <= 0) return;
+          const item = { tipo: PRODUTOS[key].name, quantidade: qty, preco: PRODUTOS[key].price };
+          const sizeSel = card.querySelector('.prod-size');
+          if (sizeSel) item.tamanho = sizeSel.value;
+          items.push(item);
+        });
+        return items;
+      }
+
+      function updateOrder() {
+        const items = collectItems();
+        let total = 0;
+        orderItems.textContent = '';
+        items.forEach(function (i) {
+          const sub = i.preco * i.quantidade;
+          total += sub;
+          const nome = i.tipo + (i.tamanho ? ' (' + i.tamanho + ')' : '') + ' × ' + i.quantidade;
+          const row = el('div', 'order-summary__item');
+          row.appendChild(el('span', null, nome));
+          row.appendChild(el('span', null, fmtBRL(sub)));
+          orderItems.appendChild(row);
+        });
+
+        const totalMudou = state.total !== total;
+        state.total = total;
+        orderTotal.textContent = fmtBRL(total);
+
+        const hasItems = temItens();
+        orderSummary.classList.toggle('visible', hasItems);
+        formSection.classList.toggle('visible', hasItems);
+
+        if (!hasItems) {
+          paymentSection.classList.remove('visible');
+          destruirBrick();
+        } else if (totalMudou) {
+          destruirBrick();
+          paymentSection.classList.remove('visible');
+          checkFormAndPayment();
+        }
+      }
+
+      /* ── Máscaras e validação ── */
+      cpfInput.addEventListener('input', function (e) {
+        let v = e.target.value.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+        else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+        else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+        e.target.value = v;
+      });
+
+      function validarCPF(cpf) {
+        cpf = String(cpf).replace(/\D/g, '');
+        if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+        for (let t = 9; t < 11; t++) {
+          let d = 0;
+          for (let c = 0; c < t; c++) d += parseInt(cpf.charAt(c)) * ((t + 1) - c);
+          d = ((10 * d) % 11) % 10;
+          if (parseInt(cpf.charAt(t)) !== d) return false;
+        }
+        return true;
+      }
+
+      document.getElementById('telefone').addEventListener('input', function (e) {
+        let v = e.target.value.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 6) v = v.replace(/(\d{2})(\d{5})(\d{1,4})/, '($1) $2-$3');
+        else if (v.length > 2) v = v.replace(/(\d{2})(\d{1,5})/, '($1) $2');
+        e.target.value = v;
+      });
+
+      let brickInitializing = false;
+
+      function formularioValido() {
+        return formEl.checkValidity() && validarCPF(cpfInput.value);
+      }
+
+      function checkFormAndPayment() {
+        if (!temItens() || !formularioValido() || state.total <= 0) return;
+        hideError(formError);
+        paymentSection.classList.add('visible');
+        if (!state.brickController && !brickInitializing) initPaymentBrick();
+      }
+
+      formEl.addEventListener('input', checkFormAndPayment);
+      formEl.addEventListener('change', checkFormAndPayment);
+
+      /* ── Mercado Pago ── */
+      let mp = null;
+
+      function destruirBrick() {
+        if (state.brickController) {
+          try { state.brickController.unmount(); } catch (e) { /* noop */ }
+          state.brickController = null;
+        }
+        brickInitializing = false;
+      }
+
+      async function initPaymentBrick() {
+        if (state.brickController || brickInitializing || state.total <= 0) return;
+        brickInitializing = true;
+        document.getElementById('payment-brick-container').textContent = '';
+
+        try {
+          if (!mp) mp = new MercadoPago(CONFIG.MP_PUBLIC_KEY, { locale: 'pt-BR' });
+        } catch (err) {
+          brickInitializing = false;
+          showError(paymentError, 'Erro ao carregar o Mercado Pago. Verifique a Public Key.');
+          return;
+        }
+
+        try {
+          const builder = mp.bricks();
+          state.brickController = await builder.create('payment', 'payment-brick-container', {
+            initialization: { amount: state.total },
+            customization: {
+              visual: { style: { theme: 'default', customVariables: { baseColor: '#e1ad01' } } },
+              paymentMethods: { bankTransfer: 'all', creditCard: 'all', debitCard: 'all' }
+            },
+            callbacks: {
+              onReady: function () {},
+              onSubmit: async function (cardFormData) { await processPayment(cardFormData); },
+              onError: function () { showError(paymentError, 'Erro no pagamento. Tente novamente.'); }
+            }
+          });
+        } catch (err) {
+          showError(paymentError, 'Não foi possível inicializar o pagamento. Recarregue a página.');
+        } finally {
+          brickInitializing = false;
+        }
+      }
+
+      function collectFormData() {
+        function v(id) { return document.getElementById(id).value.trim(); }
+        return {
+          nome: v('nome'), email: v('email'), cpf: v('cpf'),
+          telefone: v('telefone'), observacoes: v('observacoes')
+        };
+      }
+
+      async function postWithTimeout(url, payload, timeoutMs) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(function () { controller.abort(); }, timeoutMs);
+        try {
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+          return await resp.json();
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
+
+      async function processPayment(paymentData) {
+        overlay.classList.add('visible');
+        hideError(paymentError);
+        const inscrito = collectFormData();
+        const items = collectItems();
+        const payload = { tipo: 'produto', paymentData: paymentData, inscrito: inscrito, items: items, total: state.total };
+
+        try {
+          const result = await postWithTimeout(CONFIG.BACKEND_URL, payload, 30000);
+          handlePaymentResult(result, inscrito, items);
+        } catch (err) {
+          overlay.classList.remove('visible');
+          showError(paymentError, err.name === 'AbortError'
+            ? 'O servidor demorou para responder. Tente novamente.'
+            : 'Erro ao processar o pagamento. Verifique sua conexão e tente novamente.');
+        }
+      }
+
+      function handlePaymentResult(result, inscrito, items) {
+        if (result && result.status === 'approved') {
+          persistAndRedirect(inscrito, items, result.payment_id);
+          return;
+        }
+        overlay.classList.remove('visible');
+        if (result && (result.status === 'pending_pix' || result.qr_code || result.qr_code_base64)) {
+          showPixModal(result, inscrito, items);
+          return;
+        }
+        if (result && result.status === 'in_process') { showReviewModal(); return; }
+        if (result && (result.status === 'rejected' || result.status === 'cancelled')) {
+          showRejectedModal(result.status_detail || '');
+          return;
+        }
+        showError(paymentError, (result && result.message) || 'Não foi possível concluir. Tente novamente.');
+      }
+
+      function persistAndRedirect(inscrito, items, paymentId) {
+        sessionStorage.setItem('inscricao_data', JSON.stringify({
+          nome: inscrito.nome,
+          email: inscrito.email,
+          items: items,
+          total: state.total,
+          paymentId: paymentId || '',
+          ts: Date.now()
+        }));
+        window.location.href = 'inscricao-confirmada.html';
+      }
+
+      /* ── Modal Pix ── */
+      function showPixModal(result, inscrito, items) {
+        const qrImage = document.getElementById('pixQrImage');
+        const pixCode = document.getElementById('pixCode');
+        if (result.qr_code_base64) qrImage.src = 'data:image/png;base64,' + result.qr_code_base64;
+        if (result.qr_code) pixCode.textContent = result.qr_code;
+
+        const oldBtn = document.getElementById('pixCopyBtn');
+        const newBtn = oldBtn.cloneNode(true);
+        oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+        newBtn.addEventListener('click', function () {
+          navigator.clipboard.writeText(result.qr_code || '').then(function () {
+            newBtn.textContent = 'Copiado!';
+            setTimeout(function () { newBtn.textContent = 'Copiar código'; }, 2000);
+          });
+        });
+
+        startPixCountdown();
+        startPixPolling(result.payment_id, inscrito, items);
+        bindPixModalClose();
+        document.getElementById('pixModal').classList.add('visible');
+      }
+
+      function startPixCountdown() {
+        const countdownEl = document.getElementById('pixCountdown');
+        let secsLeft = 30 * 60;
+        if (state.pixCountdownInterval) clearInterval(state.pixCountdownInterval);
+        state.pixCountdownInterval = setInterval(function () {
+          secsLeft--;
+          if (secsLeft <= 0) {
+            clearInterval(state.pixCountdownInterval);
+            state.pixCountdownInterval = null;
+            countdownEl.textContent = 'Expirado';
+            countdownEl.style.color = '#d80000';
+            return;
+          }
+          const m = Math.floor(secsLeft / 60);
+          const s = secsLeft % 60;
+          countdownEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }, 1000);
+      }
+
+      function startPixPolling(paymentId, inscrito, items) {
+        if (state.pixCheckInterval) clearInterval(state.pixCheckInterval);
+        state.pixCheckInterval = setInterval(async function () {
+          try {
+            const result = await postWithTimeout(
+              CONFIG.BACKEND_URL,
+              { action: 'check_payment', payment_id: paymentId },
+              8000
+            );
+            if (result && result.status === 'approved') {
+              clearInterval(state.pixCheckInterval);
+              state.pixCheckInterval = null;
+              persistAndRedirect(inscrito, items, paymentId);
+            }
+          } catch (err) { /* tenta de novo */ }
+        }, 10000);
+        setTimeout(function () {
+          if (state.pixCheckInterval) { clearInterval(state.pixCheckInterval); state.pixCheckInterval = null; }
+        }, 35 * 60 * 1000);
+      }
+
+      function bindPixModalClose() {
+        const modal = document.getElementById('pixModal');
+        if (modal.dataset.bound === '1') return;
+        modal.dataset.bound = '1';
+        modal.addEventListener('click', function (e) {
+          if (e.target !== modal) return;
+          modal.classList.remove('visible');
+          if (state.pixCheckInterval) { clearInterval(state.pixCheckInterval); state.pixCheckInterval = null; }
+          if (state.pixCountdownInterval) { clearInterval(state.pixCountdownInterval); state.pixCountdownInterval = null; }
+        });
+      }
+
+      /* ── Modais de análise e recusa ── */
+      function showReviewModal() {
+        document.getElementById('reviewModal').classList.add('visible');
+        document.body.style.overflow = 'hidden';
+      }
+      document.getElementById('reviewModalClose').addEventListener('click', function () {
+        document.getElementById('reviewModal').classList.remove('visible');
+        document.body.style.overflow = '';
+      });
+
+      const REJECT_REASONS = {
+        cc_rejected_insufficient_amount: 'Cartão sem limite/saldo suficiente.',
+        cc_rejected_bad_filled_card_number: 'Número do cartão inválido.',
+        cc_rejected_bad_filled_date: 'Data de validade inválida.',
+        cc_rejected_bad_filled_security_code: 'Código de segurança (CVV) inválido.',
+        cc_rejected_bad_filled_other: 'Dados do cartão inválidos.',
+        cc_rejected_high_risk: 'Pagamento bloqueado pelo antifraude do Mercado Pago.',
+        cc_rejected_call_for_authorize: 'O banco emissor precisa autorizar — entre em contato com o seu banco.',
+        cc_rejected_card_disabled: 'Cartão desativado.',
+        cc_rejected_duplicated_payment: 'Pagamento duplicado — aguarde alguns minutos.',
+        cc_rejected_max_attempts: 'Muitas tentativas — aguarde alguns minutos.',
+        cc_rejected_other_reason: 'Pagamento recusado pelo banco emissor.'
+      };
+      function showRejectedModal(statusDetail) {
+        document.getElementById('rejectedReasonText').textContent =
+          REJECT_REASONS[statusDetail] || 'Pagamento não autorizado. Tente outro cartão ou use Pix.';
+        document.getElementById('rejectedModal').classList.add('visible');
+        document.body.style.overflow = 'hidden';
+      }
+      document.getElementById('rejectedModalClose').addEventListener('click', function () {
+        document.getElementById('rejectedModal').classList.remove('visible');
+        document.body.style.overflow = '';
+      });
+    }
+  </script>
+</body>
+</html>
