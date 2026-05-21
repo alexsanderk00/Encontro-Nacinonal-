@@ -30,7 +30,7 @@ const ABA_PEDIDOS    = 'Pedidos';
 
 /* Preços oficiais — fonte de verdade. NUNCA confiar no frontend. */
 const PRECOS_INSCRICAO = {
-  'Adulto': 1,  // TESTE R$1 - reverter para 60
+  'Adulto': 60,
   'Sócio AsEFEx': 40,
   'Criança 9-14 anos': 30,
   'Criança até 8 anos': 0
