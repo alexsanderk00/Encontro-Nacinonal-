@@ -50,6 +50,19 @@ const PRECOS_PRODUTOS = {
   'Boné': 35
 };
 
+/* Cabeçalhos das duas abas — usados por saveToSheet e por criarAbas(). */
+const HEADERS_INSCRICOES = [
+  'Data', 'Nome', 'Email', 'CPF', 'Telefone', 'Cidade', 'Ano Formação EsEFEx',
+  'Categoria EsEFEx', 'Participantes', 'Itens (detalhe)', 'Qtd Total',
+  'Total Bruto (R$)', 'Forma de Pagamento', 'Taxa Estimada (%)',
+  'Taxa Estimada (R$)', 'Valor Líquido (R$)', 'Status Pagamento', 'ID Pagamento'
+];
+const HEADERS_PEDIDOS = [
+  'Data', 'Nome', 'Email', 'CPF', 'Telefone', 'Observações', 'Itens (detalhe)',
+  'Qtd Total', 'Total Bruto (R$)', 'Forma de Pagamento', 'Taxa Estimada (%)',
+  'Taxa Estimada (R$)', 'Valor Líquido (R$)', 'Status Pagamento', 'ID Pagamento'
+];
+
 const EVENTO = {
   nome: 'Encontro Nacional dos Calções Pretos 2026',
   data: '22 de agosto de 2026 (sábado)',
@@ -499,6 +512,32 @@ function instalarTriggerPix() {
   Logger.log('✓ Trigger instalado: reverificarPixPendentes a cada 10 minutos.');
 }
 
+/**
+ * UTILITARIO — cria as abas "Inscrições" e "Pedidos" na planilha,
+ * com os cabeçalhos certos, se ainda não existirem. Útil para deixar
+ * as duas abas visíveis logo no início (antes da primeira venda da loja).
+ * Rode UMA VEZ no editor do Apps Script.
+ */
+function criarAbas() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const abas = [
+    { nome: ABA_INSCRICOES, headers: HEADERS_INSCRICOES },
+    { nome: ABA_PEDIDOS,    headers: HEADERS_PEDIDOS    }
+  ];
+  abas.forEach(function (a) {
+    if (ss.getSheetByName(a.nome)) {
+      Logger.log('Aba "' + a.nome + '" já existe.');
+      return;
+    }
+    const sheet = ss.insertSheet(a.nome);
+    sheet.appendRow(a.headers);
+    sheet.getRange(1, 1, 1, a.headers.length)
+      .setFontWeight('bold').setBackground('#e1ad01').setFontColor('#111111');
+    sheet.setFrozenRows(1);
+    Logger.log('✓ Aba "' + a.nome + '" criada.');
+  });
+}
+
 /* ── GRAVAÇÃO NA PLANILHA ────────────────────────────────────────── */
 function saveToSheet(inscrito, items, total, paymentResult, ehProduto, statusOverride) {
   const ss = SpreadsheetApp.openById(SHEET_ID);
@@ -507,14 +546,7 @@ function saveToSheet(inscrito, items, total, paymentResult, ehProduto, statusOve
 
   if (!sheet) {
     sheet = ss.insertSheet(nomeAba);
-    const headers = ehProduto
-      ? ['Data', 'Nome', 'Email', 'CPF', 'Telefone', 'Observações', 'Itens (detalhe)',
-         'Qtd Total', 'Total Bruto (R$)', 'Forma de Pagamento', 'Taxa Estimada (%)',
-         'Taxa Estimada (R$)', 'Valor Líquido (R$)', 'Status Pagamento', 'ID Pagamento']
-      : ['Data', 'Nome', 'Email', 'CPF', 'Telefone', 'Cidade', 'Ano Formação EsEFEx',
-         'Categoria EsEFEx', 'Participantes', 'Itens (detalhe)', 'Qtd Total',
-         'Total Bruto (R$)', 'Forma de Pagamento', 'Taxa Estimada (%)',
-         'Taxa Estimada (R$)', 'Valor Líquido (R$)', 'Status Pagamento', 'ID Pagamento'];
+    const headers = ehProduto ? HEADERS_PEDIDOS : HEADERS_INSCRICOES;
     sheet.appendRow(headers);
     sheet.getRange(1, 1, 1, headers.length)
       .setFontWeight('bold').setBackground('#e1ad01').setFontColor('#111111');
