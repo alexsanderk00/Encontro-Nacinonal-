@@ -33,8 +33,7 @@ const PRECOS_INSCRICAO = {
   'Adulto': 70,
   'Associado AsEFEx': 50,
   'Criança 9-14 anos': 40,
-  'Criança até 8 anos': 0,
-  'Corpo Permanente': 0
+  'Criança até 8 anos': 0
 };
 
 /* Preços dos produtos da loja. Boné com 0 = ainda indisponível
