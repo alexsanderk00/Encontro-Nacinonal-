@@ -180,7 +180,8 @@ function rafThrottle(fn) {
   });
 
   // Imagens dos produtos
-  const produtoImgs = Array.prototype.slice.call(document.querySelectorAll('.produto__img'));
+  const produtoImgs = Array.prototype.slice.call(document.querySelectorAll('.produto__img'))
+    .filter(function (el) { return el.tagName === 'IMG'; });
   const produtoSrcs = produtoImgs.map(function (img) { return img.getAttribute('src'); });
   produtoImgs.forEach(function (img, i) {
     tornarZoomavel(img, function () { return produtoSrcs; }, function () { return i; });

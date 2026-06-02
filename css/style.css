@@ -254,6 +254,12 @@
   color: var(--texto-escuro);
 }
 
+.program-item .activity p {
+  font-size: .9rem;
+  margin-top: .3rem;
+  color: var(--texto);
+}
+
 /* ── INSCRIÇÃO ────────────────────────────────────────────────── */
 .registration-card {
   max-width: 620px;
@@ -318,6 +324,23 @@
   margin: 0 auto 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
   cursor: zoom-in;
+}
+
+.produto__img--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cinza-claro);
+  border: 2px dashed var(--borda);
+  font-size: 3.5rem;
+  cursor: default;
+}
+
+.produto__preco {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--texto-escuro);
+  margin: .2rem 0 .4rem;
 }
 
 .produto__tag {

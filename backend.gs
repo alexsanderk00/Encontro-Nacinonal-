@@ -31,19 +31,23 @@ const ABA_PEDIDOS    = 'Pedidos';
 /* Preços oficiais — fonte de verdade. NUNCA confiar no frontend. */
 const PRECOS_INSCRICAO = {
   'Adulto': 70,
-  'Sócio AsEFEx': 50,
+  'Associado AsEFEx': 50,
   'Criança 9-14 anos': 40,
-  'Criança até 8 anos': 0
+  'Criança até 8 anos': 0,
+  'Corpo Permanente': 0
 };
 
-/* Loja desativada: preencha os preços reais quando for abrir a loja.
-   Os nomes devem ser idênticos aos de PRODUTOS no loja.html. */
+/* Preços dos produtos da loja. Boné com 0 = ainda indisponível
+   (a lógica do loja.html marca como "Em breve"). Nomes devem ser
+   idênticos aos de PRODUTOS no loja.html. */
 const PRECOS_PRODUTOS = {
-  'Camiseta Masculina': 0,
-  'Camiseta Feminina': 0,
-  'Camiseta Infantil': 0,
-  'Garrafa': 0,
-  'Moeda': 0
+  'Camiseta Masculina': 50,
+  'Camiseta Feminina': 45,
+  'Camiseta Infantil': 40,
+  'Velame': 25,
+  'Garrafa': 60,
+  'Moeda': 40,
+  'Boné': 0
 };
 
 const EVENTO = {

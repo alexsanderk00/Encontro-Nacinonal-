@@ -458,14 +458,14 @@
             </div>
           </div>
 
-          <div class="cat-card" data-categoria="socio">
-            <span class="cat-card__badge">Sócio AsEFEx</span>
+          <div class="cat-card" data-categoria="associado">
+            <span class="cat-card__badge">Associado AsEFEx</span>
             <div class="cat-card__price">R$ 50<small>,00</small></div>
-            <p class="cat-card__desc">Valor especial para sócios da AsEFEx. Inclui almoço e bebidas.</p>
+            <p class="cat-card__desc">Valor especial para associados da AsEFEx. Inclui almoço e bebidas.</p>
             <div class="qty-selector">
-              <button type="button" class="qty-btn qty-minus" aria-label="Diminuir Sócio AsEFEx" disabled>−</button>
-              <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade de Sócio AsEFEx">
-              <button type="button" class="qty-btn qty-plus" aria-label="Aumentar Sócio AsEFEx">+</button>
+              <button type="button" class="qty-btn qty-minus" aria-label="Diminuir Associado AsEFEx" disabled>−</button>
+              <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade de Associado AsEFEx">
+              <button type="button" class="qty-btn qty-plus" aria-label="Aumentar Associado AsEFEx">+</button>
             </div>
           </div>
 
@@ -488,6 +488,17 @@
               <button type="button" class="qty-btn qty-minus" aria-label="Diminuir Criança até 8 anos" disabled>−</button>
               <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade de Criança até 8 anos">
               <button type="button" class="qty-btn qty-plus" aria-label="Aumentar Criança até 8 anos">+</button>
+            </div>
+          </div>
+
+          <div class="cat-card" data-categoria="corpo_permanente">
+            <span class="cat-card__badge">Corpo Permanente</span>
+            <div class="cat-card__price cat-card__price--isento">Isento</div>
+            <p class="cat-card__desc">Gratuito para o Corpo Permanente da EsEFEx.</p>
+            <div class="qty-selector">
+              <button type="button" class="qty-btn qty-minus" aria-label="Diminuir Corpo Permanente" disabled>−</button>
+              <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade de Corpo Permanente">
+              <button type="button" class="qty-btn qty-plus" aria-label="Aumentar Corpo Permanente">+</button>
             </div>
           </div>
         </div>
@@ -663,15 +674,16 @@
 
     /* Categorias e preços — devem ser idênticos a PRECOS_INSCRICAO no backend.gs */
     const CATEGORIAS = {
-      adulto:        { name: 'Adulto',             price: 70 },
-      socio:         { name: 'Sócio AsEFEx',       price: 50 },
-      crianca_9_14:  { name: 'Criança 9-14 anos',  price: 40 },
-      crianca_ate_8: { name: 'Criança até 8 anos', price: 0  }
+      adulto:           { name: 'Adulto',             price: 70 },
+      associado:        { name: 'Associado AsEFEx',   price: 50 },
+      crianca_9_14:     { name: 'Criança 9-14 anos',  price: 40 },
+      crianca_ate_8:    { name: 'Criança até 8 anos', price: 0  },
+      corpo_permanente: { name: 'Corpo Permanente',   price: 0  }
     };
     const MAX_POR_CATEGORIA = 10;
 
     const state = {
-      quantities: { adulto: 0, socio: 0, crianca_9_14: 0, crianca_ate_8: 0 },
+      quantities: { adulto: 0, associado: 0, crianca_9_14: 0, crianca_ate_8: 0, corpo_permanente: 0 },
       total: 0,
       brickController: null,
       pixCheckInterval: null,

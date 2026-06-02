@@ -75,6 +75,14 @@
       border-radius: var(--raio-sm);
       margin: 0 auto 1rem;
     }
+    .prod-card__img--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cinza-claro);
+      border: 2px dashed var(--borda);
+      font-size: 3rem;
+    }
     .prod-card__name { color: var(--texto-escuro); font-size: 1.15rem; margin-bottom: .4rem; }
     .prod-card__price {
       font-size: 1.5rem;
@@ -388,6 +396,17 @@
               </div>
             </div>
 
+            <div class="prod-card" data-produto="velame">
+              <img class="prod-card__img" src="images/produtos/velame1.jpeg" alt="Velame">
+              <h3 class="prod-card__name">Velame</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
             <div class="prod-card" data-produto="garrafa">
               <img class="prod-card__img" src="images/produtos/garrafa1.jpeg" alt="Garrafa">
               <h3 class="prod-card__name">Garrafa</h3>
@@ -402,6 +421,17 @@
             <div class="prod-card" data-produto="moeda">
               <img class="prod-card__img" src="images/produtos/moeda1.png" alt="Moeda comemorativa">
               <h3 class="prod-card__name">Moeda</h3>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
+            <div class="prod-card" data-produto="bone">
+              <div class="prod-card__img prod-card__img--placeholder" aria-label="Boné — imagem em breve">🧢</div>
+              <h3 class="prod-card__name">Boné</h3>
               <div class="prod-card__price" data-price>—</div>
               <div class="qty-selector">
                 <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
@@ -539,13 +569,15 @@
     };
 
     /* Produtos — os nomes devem ser idênticos a PRECOS_PRODUTOS no backend.gs.
-       Preencha os preços (em reais) quando for abrir a loja. */
+       Boné com price 0 = ainda indisponível (mostra "Em breve"). */
     const PRODUTOS = {
-      camiseta_m:   { name: 'Camiseta Masculina', price: 0, tamanhos: ['P', 'M', 'G', 'GG'] },
-      camiseta_f:   { name: 'Camiseta Feminina',  price: 0, tamanhos: ['P', 'M', 'G', 'GG'] },
-      camiseta_inf: { name: 'Camiseta Infantil',  price: 0, tamanhos: ['2', '4', '6', '8', '10'] },
-      garrafa:      { name: 'Garrafa',            price: 0 },
-      moeda:        { name: 'Moeda',              price: 0 }
+      camiseta_m:   { name: 'Camiseta Masculina', price: 50, tamanhos: ['P', 'M', 'G', 'GG'] },
+      camiseta_f:   { name: 'Camiseta Feminina',  price: 45, tamanhos: ['P', 'M', 'G', 'GG'] },
+      camiseta_inf: { name: 'Camiseta Infantil',  price: 40, tamanhos: ['2', '4', '6', '8', '10'] },
+      velame:       { name: 'Velame',             price: 25 },
+      garrafa:      { name: 'Garrafa',            price: 60 },
+      moeda:        { name: 'Moeda',              price: 40 },
+      bone:         { name: 'Boné',               price: 0 }
     };
     const MAX_POR_PRODUTO = 20;
 
