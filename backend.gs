@@ -44,10 +44,10 @@ const PRECOS_PRODUTOS = {
   'Camiseta Masculina': 50,
   'Camiseta Feminina': 45,
   'Camiseta Infantil': 40,
-  'Velame': 25,
-  'Garrafa': 60,
-  'Moeda': 40,
-  'Boné': 0
+  'Velame': 35,
+  'Garrafa': 80,
+  'Moeda': 60,
+  'Boné': 35
 };
 
 const EVENTO = {
