@@ -40,9 +40,7 @@ const PRECOS_INSCRICAO = {
    (a lógica do loja.html marca como "Em breve"). Nomes devem ser
    idênticos aos de PRODUTOS no loja.html. */
 const PRECOS_PRODUTOS = {
-  'Camiseta Masculina': 50,
-  'Camiseta Feminina': 45,
-  'Camiseta Infantil': 40,
+  'Camiseta do Evento': 70,
   'Velame': 35,
   'Garrafa': 80,
   'Moeda': 60,

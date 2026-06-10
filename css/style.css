@@ -260,6 +260,26 @@
   color: var(--texto);
 }
 
+.program-item .activity .local {
+  color: var(--dourado-escuro);
+  font-weight: 600;
+}
+
+.program-item .activity .local::before {
+  content: '📍 ';
+}
+
+/* Cabeçalho de cada grupo da programação */
+.program-group {
+  background: var(--cinza-claro);
+  color: var(--texto-escuro);
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: .9rem 1.5rem;
+  border-top: 3px solid var(--dourado);
+  border-bottom: 1px solid #eee;
+}
+
 /* ── INSCRIÇÃO ────────────────────────────────────────────────── */
 .registration-card {
   max-width: 620px;
