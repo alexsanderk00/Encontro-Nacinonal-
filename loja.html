@@ -352,14 +352,31 @@
         <div class="container">
           <h2 class="bloco__title">Escolha seus produtos</h2>
           <div class="prod-grid" id="prodGrid">
-            <div class="prod-card" data-produto="camiseta">
-              <img class="prod-card__img" src="images/produtos/camiseta-evento.jpeg" alt="Camiseta do Evento (frente e costas)">
-              <h3 class="prod-card__name">Camiseta do Evento</h3>
+            <div class="prod-card" data-produto="camiseta_masc">
+              <img class="prod-card__img" src="images/produtos/camiseta-masculina.jpeg" alt="Camiseta Masculina (frente e costas)">
+              <h3 class="prod-card__name">Camiseta Masculina</h3>
               <p class="prod-card__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada.</p>
               <div class="prod-card__price" data-price>—</div>
               <div class="prod-card__size">
                 <label>Tamanho:
-                  <select class="prod-size" aria-label="Tamanho da Camiseta do Evento"></select>
+                  <select class="prod-size" aria-label="Tamanho da Camiseta Masculina"></select>
+                </label>
+              </div>
+              <div class="qty-selector">
+                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
+                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
+                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
+              </div>
+            </div>
+
+            <div class="prod-card" data-produto="camiseta_fem">
+              <img class="prod-card__img" src="images/produtos/camiseta-feminina.jpeg" alt="Camiseta Feminina (frente e costas)">
+              <h3 class="prod-card__name">Camiseta Feminina</h3>
+              <p class="prod-card__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada.</p>
+              <div class="prod-card__price" data-price>—</div>
+              <div class="prod-card__size">
+                <label>Tamanho:
+                  <select class="prod-size" aria-label="Tamanho da Camiseta Feminina"></select>
                 </label>
               </div>
               <div class="qty-selector">
@@ -544,7 +561,8 @@
     /* Produtos — os nomes devem ser idênticos a PRECOS_PRODUTOS no backend.gs.
        Boné com price 0 = ainda indisponível (mostra "Em breve"). */
     const PRODUTOS = {
-      camiseta:     { name: 'Camiseta do Evento', price: 70, tamanhos: ['P (Masc)', 'M (Masc)', 'G (Masc)', 'GG (Masc)', 'P (Fem)', 'M (Fem)', 'G (Fem)'] },
+      camiseta_masc: { name: 'Camiseta Masculina', price: 70, tamanhos: ['P', 'M', 'G', 'GG'] },
+      camiseta_fem:  { name: 'Camiseta Feminina',  price: 70, tamanhos: ['P', 'M', 'G'] },
       velame:       { name: 'Velame',             price: 35 },
       garrafa:      { name: 'Garrafa',            price: 80 },
       moeda:        { name: 'Moeda',              price: 60 },
