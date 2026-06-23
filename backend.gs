@@ -40,8 +40,8 @@ const PRECOS_INSCRICAO = {
    (a lógica do loja.html marca como "Em breve"). Nomes devem ser
    idênticos aos de PRODUTOS no loja.html. */
 const PRECOS_PRODUTOS = {
-  'Camiseta Masculina': 70,
-  'Camiseta Feminina': 70,
+  'Camiseta Masculina': 65,
+  'Camiseta Feminina': 65,
   'Velame': 35,
   'Garrafa': 80,
   'Moeda': 60,
@@ -695,4 +695,186 @@ function sendPixExpiredEmail(inscrito) {
     name: EVENTO.nome,
     replyTo: EVENTO.emailContato
   });
+}
+
+/* ── RESUMO ──────────────────────────────────────────────────────── */
+
+/**
+ * Lê as abas Inscrições e Pedidos e gera/atualiza a aba "Resumo"
+ * com contagem de vendas por categoria/produto vs estoque inicial.
+ *
+ * Rode manualmente ou instale o trigger com instalarTriggerResumo().
+ */
+function gerarResumo() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+
+  // Estoque inicial de referência (atualizar aqui se o estoque mudar).
+  const ESTOQUE_INICIAL = {
+    'Camiseta Masculina P': 20, 'Camiseta Masculina M': 45,
+    'Camiseta Masculina G': 55, 'Camiseta Masculina GG': 45,
+    'Camiseta Feminina P': 10,  'Camiseta Feminina M': 20,
+    'Camiseta Feminina G': 5,
+    'Velame': 100, 'Garrafa': 236, 'Boné': 100, 'Moeda': 120
+  };
+
+  // Extrai pares {chave → quantidade} de uma string "Itens (detalhe)".
+  // Formato: "Produto [Tam] ×N (R$ X,XX), Produto ×N (R$ X,XX)"
+  function parseItens(str) {
+    const resultado = {};
+    String(str || '').split(', ').forEach(function (parte) {
+      const m = parte.match(/^(.+?)(?:\s*\[([^\]]+)\])?\s*×(\d+)/);
+      if (!m) return;
+      const chave = m[2] ? m[1].trim() + ' ' + m[2].trim() : m[1].trim();
+      resultado[chave] = (resultado[chave] || 0) + parseInt(m[3], 10);
+    });
+    return resultado;
+  }
+
+  // Lê uma aba e soma itens somente das linhas com status "Confirmado" ou "Aprovado".
+  function somarAba(nomeAba) {
+    const totais = {};
+    const aba = ss.getSheetByName(nomeAba);
+    if (!aba || aba.getLastRow() < 2) return totais;
+    const dados = aba.getDataRange().getValues();
+    const hdrs  = dados[0];
+    const cDet  = hdrs.indexOf('Itens (detalhe)');
+    const cStt  = hdrs.indexOf('Status Pagamento');
+    if (cDet < 0 || cStt < 0) return totais;
+    for (let i = 1; i < dados.length; i++) {
+      const st = String(dados[i][cStt] || '');
+      if (st.indexOf('Aprovado') < 0 && st.indexOf('Confirmado') < 0) continue;
+      const itens = parseItens(dados[i][cDet]);
+      Object.keys(itens).forEach(function (k) {
+        totais[k] = (totais[k] || 0) + itens[k];
+      });
+    }
+    return totais;
+  }
+
+  const vendasInsc = somarAba(ABA_INSCRICOES);
+  const vendasProd = somarAba(ABA_PEDIDOS);
+
+  // Criar ou limpar a aba Resumo.
+  let resumo = ss.getSheetByName('Resumo');
+  if (!resumo) {
+    resumo = ss.insertSheet('Resumo');
+  } else {
+    resumo.clearContents();
+    resumo.clearFormats();
+  }
+
+  const agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
+  const linhas = [];
+
+  // Título + data
+  linhas.push(['RESUMO — Encontro Nacional dos Calções Pretos 2026', '', '', '', '']);
+  linhas.push(['Atualizado em: ' + agora, '', '', '', '']);
+  linhas.push(['', '', '', '', '']);
+
+  // ── INSCRIÇÕES ──
+  linhas.push(['INSCRIÇÕES', '', '', '', '']);
+  linhas.push(['Categoria', 'Confirmadas', '', 'Arrecadado (R$)', '']);
+  const catOrdem = ['Adulto', 'Associado AsEFEx', 'Criança 9-14 anos', 'Criança até 8 anos'];
+  var totalInscQtd = 0, totalInscVal = 0;
+  catOrdem.forEach(function (cat) {
+    const qtd  = vendasInsc[cat] || 0;
+    const val  = qtd * (PRECOS_INSCRICAO[cat] || 0);
+    totalInscQtd += qtd;
+    totalInscVal += val;
+    linhas.push([cat, qtd, '', val, '']);
+  });
+  linhas.push(['TOTAL INSCRIÇÕES', totalInscQtd, '', totalInscVal, '']);
+  linhas.push(['', '', '', '', '']);
+
+  // ── PRODUTOS ──
+  linhas.push(['PRODUTOS', '', '', '', '']);
+  linhas.push(['Produto / Tamanho', 'Vendidos', 'Estoque inicial', 'Restante', 'Arrecadado (R$)']);
+  const prodOrdem = [
+    { nome: 'Camiseta Masculina', tams: ['P', 'M', 'G', 'GG'] },
+    { nome: 'Camiseta Feminina',  tams: ['P', 'M', 'G'] },
+    { nome: 'Velame',  tams: null },
+    { nome: 'Garrafa', tams: null },
+    { nome: 'Boné',    tams: null },
+    { nome: 'Moeda',   tams: null }
+  ];
+  var totalProdVal = 0;
+  prodOrdem.forEach(function (p) {
+    const preco = PRECOS_PRODUTOS[p.nome] || 0;
+    if (p.tams) {
+      p.tams.forEach(function (tam) {
+        const chave   = p.nome + ' ' + tam;
+        const vendido = vendasProd[chave] || 0;
+        const inicial = ESTOQUE_INICIAL[chave] || 0;
+        const arrecad = vendido * preco;
+        totalProdVal += arrecad;
+        linhas.push([chave, vendido, inicial, inicial - vendido, arrecad]);
+      });
+    } else {
+      const vendido = vendasProd[p.nome] || 0;
+      const inicial = ESTOQUE_INICIAL[p.nome] || 0;
+      const arrecad = vendido * preco;
+      totalProdVal += arrecad;
+      linhas.push([p.nome, vendido, inicial, inicial - vendido, arrecad]);
+    }
+  });
+  linhas.push(['TOTAL PRODUTOS', '', '', '', totalProdVal]);
+  linhas.push(['', '', '', '', '']);
+  linhas.push(['TOTAL GERAL (inscrições + produtos)', '', '', '', totalInscVal + totalProdVal]);
+
+  // Gravar tudo de uma vez.
+  resumo.getRange(1, 1, linhas.length, 5).setValues(linhas);
+
+  // ── Formatação ──
+  // Título (linha 1)
+  resumo.getRange(1, 1, 1, 5).merge()
+    .setBackground('#1a1a1a').setFontColor('#e1ad01')
+    .setFontWeight('bold').setFontSize(13).setHorizontalAlignment('center');
+  // Data (linha 2)
+  resumo.getRange(2, 1, 1, 5).merge()
+    .setFontStyle('italic').setFontColor('#666666').setHorizontalAlignment('center');
+
+  // Cabeçalho INSCRIÇÕES (linha 4)
+  var linhaInsc = 4;
+  resumo.getRange(linhaInsc, 1, 1, 5).merge()
+    .setBackground('#333333').setFontColor('#ffffff').setFontWeight('bold');
+  // Cabeçalho colunas inscrições (linha 5)
+  resumo.getRange(linhaInsc + 1, 1, 1, 5)
+    .setBackground('#555555').setFontColor('#ffffff').setFontWeight('bold');
+  // Linha TOTAL INSCRIÇÕES
+  var linhaTotalInsc = linhaInsc + 2 + catOrdem.length;
+  resumo.getRange(linhaTotalInsc, 1, 1, 5)
+    .setBackground('#fff0b3').setFontWeight('bold');
+
+  // Cabeçalho PRODUTOS
+  var linhaProd = linhaTotalInsc + 2;
+  resumo.getRange(linhaProd, 1, 1, 5).merge()
+    .setBackground('#333333').setFontColor('#ffffff').setFontWeight('bold');
+  resumo.getRange(linhaProd + 1, 1, 1, 5)
+    .setBackground('#555555').setFontColor('#ffffff').setFontWeight('bold');
+
+  // Linha TOTAL GERAL (última linha)
+  var ultimaLinha = linhas.length;
+  resumo.getRange(ultimaLinha, 1, 1, 5)
+    .setBackground('#e1ad01').setFontWeight('bold').setFontSize(12);
+
+  // Linha TOTAL PRODUTOS (penúltima antes do espaço)
+  resumo.getRange(ultimaLinha - 2, 1, 1, 5)
+    .setBackground('#fff0b3').setFontWeight('bold');
+
+  resumo.autoResizeColumns(1, 5);
+
+  Logger.log('✓ Resumo atualizado em ' + agora +
+    ' — ' + totalInscQtd + ' inscrições, R$' + (totalInscVal + totalProdVal).toFixed(2) + ' total.');
+}
+
+/**
+ * Instala trigger que roda gerarResumo() a cada hora.
+ * Rode UMA VEZ no editor do Apps Script.
+ */
+function instalarTriggerResumo() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'gerarResumo') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('gerarResumo').timeBased().everyHours(1).create();
+  Logger.log('✓ Trigger instalado: gerarResumo a cada hora.');
 }

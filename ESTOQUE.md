@@ -5,7 +5,7 @@
 > aba **Pedidos** da planilha do Google e atualize as quantidades abaixo conforme
 > for vendendo.
 
-## Camiseta do Evento — R$ 70,00
+## Camiseta do Evento — R$ 65,00
 Camiseta Prime (Malha Premium) · 100% algodão, fio 30.1 penteado, costura dupla,
 gola e mangas reforçadas, pré-lavada.
 
