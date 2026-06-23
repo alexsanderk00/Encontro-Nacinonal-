@@ -109,6 +109,36 @@
       font-family: inherit;
     }
 
+    /* ── LINHAS POR TAMANHO (camisetas) ── */
+    .size-rows__hint {
+      font-size: .82rem;
+      color: var(--texto);
+      margin-bottom: .6rem;
+    }
+    .size-rows {
+      display: flex;
+      flex-direction: column;
+      gap: .55rem;
+      max-width: 230px;
+      margin: 0 auto;
+    }
+    .size-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+    }
+    .size-row__label {
+      font-weight: 700;
+      color: var(--texto-escuro);
+      font-size: 1rem;
+      min-width: 2.4rem;
+      text-align: left;
+    }
+    .size-row .qty-selector { gap: .5rem; }
+    .size-row .qty-btn { width: 32px; height: 32px; font-size: 1.2rem; }
+    .size-row .qty-value { width: 42px; font-size: 1.05rem; padding: .3rem; }
+
     /* ── SELETOR DE QUANTIDADE ── */
     .qty-selector {
       display: flex;
@@ -357,16 +387,8 @@
               <h3 class="prod-card__name">Camiseta Masculina</h3>
               <p class="prod-card__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada.</p>
               <div class="prod-card__price" data-price>—</div>
-              <div class="prod-card__size">
-                <label>Tamanho:
-                  <select class="prod-size" aria-label="Tamanho da Camiseta Masculina"></select>
-                </label>
-              </div>
-              <div class="qty-selector">
-                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
-                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
-                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
-              </div>
+              <p class="size-rows__hint">Escolha a quantidade de cada tamanho:</p>
+              <div class="size-rows" data-size-rows></div>
             </div>
 
             <div class="prod-card" data-produto="camiseta_fem">
@@ -374,16 +396,8 @@
               <h3 class="prod-card__name">Camiseta Feminina</h3>
               <p class="prod-card__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada.</p>
               <div class="prod-card__price" data-price>—</div>
-              <div class="prod-card__size">
-                <label>Tamanho:
-                  <select class="prod-size" aria-label="Tamanho da Camiseta Feminina"></select>
-                </label>
-              </div>
-              <div class="qty-selector">
-                <button type="button" class="qty-btn qty-minus" aria-label="Diminuir" disabled>−</button>
-                <input type="text" class="qty-value" value="0" readonly aria-label="Quantidade">
-                <button type="button" class="qty-btn qty-plus" aria-label="Aumentar">+</button>
-              </div>
+              <p class="size-rows__hint">Escolha a quantidade de cada tamanho:</p>
+              <div class="size-rows" data-size-rows></div>
             </div>
 
             <div class="prod-card" data-produto="velame">
@@ -583,13 +597,12 @@
 
     function initLoja() {
       const state = {
-        quantities: {},
+        quantities: {},   // chave: 'produto' ou 'produto|TAMANHO'  →  qtd
         total: 0,
         brickController: null,
         pixCheckInterval: null,
         pixCountdownInterval: null
       };
-      Object.keys(PRODUTOS).forEach(function (k) { state.quantities[k] = 0; });
 
       const orderSummary  = document.getElementById('orderSummary');
       const orderItems    = document.getElementById('orderItems');
@@ -615,64 +628,93 @@
         return Object.keys(state.quantities).some(function (k) { return state.quantities[k] > 0; });
       }
 
-      /* ── Renderiza preços, tamanhos e disponibilidade dos cards ── */
+      /* Cria um seletor de quantidade (− valor +) já vinculado a um rowId. */
+      function buildQtySelector(rowId, card, disponivel) {
+        const wrap = el('div', 'qty-selector');
+        const minus = el('button', 'qty-btn qty-minus', '−');
+        minus.type = 'button'; minus.setAttribute('aria-label', 'Diminuir'); minus.disabled = true;
+        const display = el('input', 'qty-value');
+        display.type = 'text'; display.value = '0'; display.readOnly = true;
+        display.setAttribute('aria-label', 'Quantidade');
+        const plus = el('button', 'qty-btn qty-plus', '+');
+        plus.type = 'button'; plus.setAttribute('aria-label', 'Aumentar');
+        if (!disponivel) { minus.disabled = true; plus.disabled = true; }
+        wrap.appendChild(minus); wrap.appendChild(display); wrap.appendChild(plus);
+        bindQty(minus, plus, display, rowId, card, disponivel);
+        return wrap;
+      }
+
+      /* Liga os botões de + e − de um seletor ao state.quantities[rowId]. */
+      function bindQty(minus, plus, display, rowId, card, disponivel) {
+        if (!disponivel) return;
+        plus.addEventListener('click', function () {
+          if (state.quantities[rowId] >= MAX_POR_PRODUTO) return;
+          state.quantities[rowId]++;
+          display.value = state.quantities[rowId];
+          minus.disabled = false;
+          atualizarCardAtivo(card);
+          updateOrder();
+        });
+        minus.addEventListener('click', function () {
+          if (state.quantities[rowId] <= 0) return;
+          state.quantities[rowId]--;
+          display.value = state.quantities[rowId];
+          minus.disabled = state.quantities[rowId] === 0;
+          atualizarCardAtivo(card);
+          updateOrder();
+        });
+      }
+
+      /* Marca o card como ativo se qualquer tamanho dele tiver quantidade. */
+      function atualizarCardAtivo(card) {
+        const key = card.dataset.produto;
+        const ativo = Object.keys(state.quantities).some(function (rid) {
+          return rid.split('|')[0] === key && state.quantities[rid] > 0;
+        });
+        card.classList.toggle('prod-card--ativa', ativo);
+      }
+
+      /* ── Renderiza preços, tamanhos e seletores dos cards ── */
       document.querySelectorAll('.prod-card').forEach(function (card) {
         const key = card.dataset.produto;
         const prod = PRODUTOS[key];
         const priceEl = card.querySelector('[data-price]');
-        const sizeSel = card.querySelector('.prod-size');
         const disponivel = prod.price > 0;
 
         priceEl.textContent = disponivel ? fmtBRL(prod.price) : 'Em breve';
-        if (sizeSel && prod.tamanhos) {
+        if (!disponivel) card.classList.add('prod-card--indisponivel');
+
+        if (prod.tamanhos) {
+          // Uma linha (tamanho + seletor de quantidade) por tamanho.
+          const container = card.querySelector('[data-size-rows]');
           prod.tamanhos.forEach(function (t) {
-            const opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = t;
-            sizeSel.appendChild(opt);
+            const rowId = key + '|' + t;
+            state.quantities[rowId] = 0;
+            const row = el('div', 'size-row');
+            row.appendChild(el('span', 'size-row__label', t));
+            row.appendChild(buildQtySelector(rowId, card, disponivel));
+            container.appendChild(row);
           });
+        } else {
+          // Produto sem tamanho: usa o seletor de quantidade já no HTML.
+          state.quantities[key] = 0;
+          const minus = card.querySelector('.qty-minus');
+          const plus  = card.querySelector('.qty-plus');
+          const display = card.querySelector('.qty-value');
+          if (!disponivel) card.querySelectorAll('.qty-btn').forEach(function (b) { b.disabled = true; });
+          bindQty(minus, plus, display, key, card, disponivel);
         }
-        if (!disponivel) {
-          card.classList.add('prod-card--indisponivel');
-          card.querySelectorAll('.qty-btn').forEach(function (b) { b.disabled = true; });
-        }
-      });
-
-      /* ── Seletores de quantidade ── */
-      document.querySelectorAll('.prod-card').forEach(function (card) {
-        const key = card.dataset.produto;
-        if (PRODUTOS[key].price <= 0) return;
-        const minus = card.querySelector('.qty-minus');
-        const plus  = card.querySelector('.qty-plus');
-        const display = card.querySelector('.qty-value');
-
-        plus.addEventListener('click', function () {
-          if (state.quantities[key] >= MAX_POR_PRODUTO) return;
-          state.quantities[key]++;
-          display.value = state.quantities[key];
-          minus.disabled = false;
-          card.classList.add('prod-card--ativa');
-          updateOrder();
-        });
-        minus.addEventListener('click', function () {
-          if (state.quantities[key] <= 0) return;
-          state.quantities[key]--;
-          display.value = state.quantities[key];
-          minus.disabled = state.quantities[key] === 0;
-          card.classList.toggle('prod-card--ativa', state.quantities[key] > 0);
-          updateOrder();
-        });
       });
 
       function collectItems() {
         const items = [];
-        document.querySelectorAll('.prod-card').forEach(function (card) {
-          const key = card.dataset.produto;
-          const qty = state.quantities[key];
+        Object.keys(state.quantities).forEach(function (rowId) {
+          const qty = state.quantities[rowId];
           if (qty <= 0) return;
+          const partes = rowId.split('|');
+          const key = partes[0];
           const item = { tipo: PRODUTOS[key].name, quantidade: qty, preco: PRODUTOS[key].price };
-          const sizeSel = card.querySelector('.prod-size');
-          if (sizeSel) item.tamanho = sizeSel.value;
+          if (partes[1]) item.tamanho = partes[1];
           items.push(item);
         });
         return items;
