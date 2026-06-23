@@ -369,6 +369,13 @@
   cursor: default;
 }
 
+.produto__desc {
+  font-size: .85rem;
+  color: var(--texto);
+  line-height: 1.4;
+  margin: .2rem 0 .5rem;
+}
+
 .produto__preco {
   font-size: 1.2rem;
   font-weight: 700;

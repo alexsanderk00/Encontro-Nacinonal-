@@ -117,7 +117,7 @@ function validarPrecos(items, tabela) {
     const precoReal = tabela[item.tipo];
     if (precoReal === undefined) return { ok: false, message: 'Item inválido: ' + item.tipo };
     const qtd = parseInt(item.quantidade, 10);
-    if (!qtd || qtd < 1 || qtd > 10) return { ok: false, message: 'Quantidade inválida.' };
+    if (!qtd || qtd < 1 || qtd > 20) return { ok: false, message: 'Quantidade inválida.' };
     total += precoReal * qtd;
   }
   return { ok: true, total: total };

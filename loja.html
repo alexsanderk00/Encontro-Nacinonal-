@@ -84,6 +84,7 @@
       font-size: 3rem;
     }
     .prod-card__name { color: var(--texto-escuro); font-size: 1.15rem; margin-bottom: .4rem; }
+    .prod-card__desc { font-size: .8rem; color: var(--texto); line-height: 1.4; margin-bottom: .6rem; }
     .prod-card__price {
       font-size: 1.5rem;
       font-weight: 700;
@@ -351,6 +352,7 @@
             <div class="prod-card" data-produto="camiseta">
               <img class="prod-card__img" src="images/produtos/camiseta-evento.jpeg" alt="Camiseta do Evento (frente e costas)">
               <h3 class="prod-card__name">Camiseta do Evento</h3>
+              <p class="prod-card__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada.</p>
               <div class="prod-card__price" data-price>—</div>
               <div class="prod-card__size">
                 <label>Tamanho:
@@ -529,7 +531,7 @@
        LOJA — mude para true e preencha os preços em PRODUTOS para abrir.
        Lembre-se de também preencher PRECOS_PRODUTOS no backend.gs.
     ================================================================ */
-    const LOJA_ABERTA = false;
+    const LOJA_ABERTA = true;
 
     const CONFIG = {
       MP_PUBLIC_KEY: 'APP_USR-b92e96c0-57da-4e12-9a44-da4cdb69d3b1',
@@ -539,7 +541,7 @@
     /* Produtos — os nomes devem ser idênticos a PRECOS_PRODUTOS no backend.gs.
        Boné com price 0 = ainda indisponível (mostra "Em breve"). */
     const PRODUTOS = {
-      camiseta:     { name: 'Camiseta do Evento', price: 70, tamanhos: ['PP', 'P', 'M', 'G', 'GG', 'XG'] },
+      camiseta:     { name: 'Camiseta do Evento', price: 70, tamanhos: ['P (Masc)', 'M (Masc)', 'G (Masc)', 'GG (Masc)', 'P (Fem)', 'M (Fem)', 'G (Fem)'] },
       velame:       { name: 'Velame',             price: 35 },
       garrafa:      { name: 'Garrafa',            price: 80 },
       moeda:        { name: 'Moeda',              price: 60 },
