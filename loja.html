@@ -10,6 +10,9 @@
   <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
   <link rel="stylesheet" href="css/shared.css">
   <style>
+    /* Garante que o atributo hidden sempre esconda (vence display:flex etc.) */
+    [hidden] { display: none !important; }
+
     body { display: flex; flex-direction: column; min-height: 100vh; }
 
     .sub-hero {
