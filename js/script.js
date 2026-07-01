@@ -75,6 +75,44 @@ function rafThrottle(fn) {
   targets.forEach(function (el) { observer.observe(el); });
 })();
 
+/* ── CONTAGEM REGRESSIVA (prazo de inscrição) ─────────────────── */
+(function initCountdown() {
+  const el = document.getElementById('countdown');
+  if (!el) return;
+
+  const alvo = new Date('2026-08-15T23:59:59-03:00').getTime();
+  const campos = {
+    dias:  el.querySelector('[data-cd="dias"]'),
+    horas: el.querySelector('[data-cd="horas"]'),
+    min:   el.querySelector('[data-cd="min"]'),
+    seg:   el.querySelector('[data-cd="seg"]')
+  };
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  let intervalo = null;
+
+  function tick() {
+    const diff = alvo - Date.now();
+    if (diff <= 0) {
+      el.innerHTML = '<p class="hero__countdown-encerrado">Inscrições encerradas</p>';
+      if (intervalo) clearInterval(intervalo);
+      return;
+    }
+    const dias  = Math.floor(diff / 86400000);
+    const horas = Math.floor((diff % 86400000) / 3600000);
+    const min   = Math.floor((diff % 3600000) / 60000);
+    const seg   = Math.floor((diff % 60000) / 1000);
+    campos.dias.textContent  = pad(dias);
+    campos.horas.textContent = pad(horas);
+    campos.min.textContent   = pad(min);
+    campos.seg.textContent   = pad(seg);
+  }
+
+  tick();
+  intervalo = setInterval(tick, 1000);
+})();
+
 /* ── GALERIA (carrosséis por ano) + MODAL DE IMAGEM ───────────── */
 (function initGaleriaModal() {
   const galerias = {

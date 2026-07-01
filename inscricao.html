@@ -8,22 +8,26 @@
   <meta name="theme-color" content="#e1ad01">
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/shared.css">
   <style>
     body { display: flex; flex-direction: column; }
 
     /* ── SUB-HERO ── */
     .sub-hero {
-      background: var(--grad-fundo);
+      background: var(--preto-clube);
       text-align: center;
       padding: 3rem 1rem;
     }
     .sub-hero h1 {
-      color: var(--texto-escuro);
+      color: var(--texto-claro);
       font-size: 2.6rem;
     }
     .sub-hero p {
-      color: var(--texto-escuro);
+      color: var(--texto-claro);
+      opacity: .85;
       max-width: 620px;
       margin: .8rem auto 0;
     }
@@ -55,14 +59,12 @@
     }
     .cat-card {
       background: var(--branco);
-      border: 2px solid var(--borda);
-      border-radius: var(--raio);
+      border: 1px solid var(--borda);
+      border-radius: var(--raio-sm);
       padding: 1.8rem 1.4rem;
       text-align: center;
-      box-shadow: var(--sombra);
-      transition: border-color var(--trans), transform var(--trans);
+      transition: border-color var(--trans);
     }
-    .cat-card:hover { transform: translateY(-4px); }
     .cat-card--ativa { border-color: var(--dourado); }
     .cat-card__badge {
       display: inline-block;
@@ -280,7 +282,9 @@
 
     /* ── AVISO DE PRAZO ── */
     .notice {
-      background: var(--grad-fundo);
+      background: rgba(225, 173, 1, .14);
+      border-top: 1px solid var(--dourado-linha);
+      border-bottom: 1px solid var(--dourado-linha);
       text-align: center;
       padding: 1.2rem;
     }

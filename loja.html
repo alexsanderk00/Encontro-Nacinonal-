@@ -8,6 +8,9 @@
   <meta name="theme-color" content="#e1ad01">
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/shared.css">
   <style>
     /* Garante que o atributo hidden sempre esconda (vence display:flex etc.) */
@@ -16,12 +19,12 @@
     body { display: flex; flex-direction: column; min-height: 100vh; }
 
     .sub-hero {
-      background: var(--grad-fundo);
+      background: var(--preto-clube);
       text-align: center;
       padding: 3rem 1rem;
     }
-    .sub-hero h1 { color: var(--texto-escuro); font-size: 2.6rem; }
-    .sub-hero p { color: var(--texto-escuro); max-width: 620px; margin: .8rem auto 0; }
+    .sub-hero h1 { color: var(--texto-claro); font-size: 2.6rem; }
+    .sub-hero p { color: var(--texto-claro); opacity: .85; max-width: 620px; margin: .8rem auto 0; }
 
     .bloco { padding: 3rem 0; background: var(--branco); }
     .bloco--alt { background: var(--cinza-claro); }
@@ -42,8 +45,8 @@
     }
     .loja-em-breve__card {
       background: var(--branco);
-      border-radius: var(--raio);
-      box-shadow: var(--sombra-forte);
+      border-radius: var(--raio-sm);
+      border: 1px solid var(--borda);
       padding: 3rem 2.5rem;
       text-align: center;
       max-width: 560px;
@@ -62,11 +65,11 @@
     }
     .prod-card {
       background: var(--branco);
-      border: 2px solid var(--borda);
-      border-radius: var(--raio);
+      border: 1px solid var(--borda);
+      border-radius: var(--raio-sm);
       padding: 1.5rem;
       text-align: center;
-      box-shadow: var(--sombra);
+      transition: border-color var(--trans);
     }
     .prod-card--ativa { border-color: var(--dourado); }
     .prod-card--indisponivel { opacity: .55; }

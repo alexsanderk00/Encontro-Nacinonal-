@@ -12,6 +12,12 @@
   --grad-dourado:   linear-gradient(45deg, #e1ad01, #ffd700);
   --grad-fundo:     linear-gradient(135deg, #e1ad01 0%, #ffd700 100%);
 
+  /* Preto/grafite institucional — usado como cor estrutural (não só acento) */
+  --preto-clube:    #0d0d0d;
+  --grafite:        #1c1c1e;
+  --grafite-suave:  #2a2a2d;
+  --dourado-linha:  rgba(225, 173, 1, .35);
+
   /* Texto */
   --texto:          #333333;
   --texto-escuro:   #111111;
@@ -19,6 +25,7 @@
 
   /* Superfícies */
   --branco:         #ffffff;
+  --off-white:      #f7f5f0;
   --cinza-claro:    #f8f9fa;
   --borda:          #dddddd;
 
@@ -40,6 +47,7 @@
 
   /* Tipografia */
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
 
   --trans: .3s ease;
 }
@@ -61,7 +69,7 @@ body {
   font-family: var(--font);
   line-height: 1.6;
   color: var(--texto);
-  background: var(--grad-fundo);
+  background: var(--off-white);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -69,6 +77,11 @@ body {
 img {
   display: block;
   max-width: 100%;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
 }
 
 a {
@@ -166,6 +179,18 @@ textarea:focus-visible {
   transform: none;
 }
 
+.cta-button--outline {
+  background: transparent;
+  border: 2px solid var(--dourado);
+  color: var(--dourado-claro);
+  box-shadow: none;
+}
+
+.cta-button--outline:hover {
+  background: rgba(225, 173, 1, .12);
+  box-shadow: none;
+}
+
 /* ── CABEÇALHO DAS SUB-PÁGINAS ────────────────────────────────── */
 .subpage-header {
   background: var(--branco);
@@ -195,9 +220,11 @@ textarea:focus-visible {
 }
 
 .subpage-header__brand span {
-  font-weight: bold;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
   color: var(--texto-escuro);
-  font-size: .95rem;
+  font-size: 1rem;
   margin-left: 4px;
 }
 

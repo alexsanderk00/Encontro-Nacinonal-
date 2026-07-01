@@ -14,6 +14,10 @@
     <meta property="og:type" content="website">
     <meta property="og:image" content="images/logos/layout.png">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="css/shared.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -46,12 +50,44 @@
     <main id="main">
         <!-- ── HERO ── -->
         <section class="hero" id="inicio">
+            <div class="hero__media">
+                <img src="images/galeria/2024/Imagem1.jpg" alt="Formados da EsEFEx reunidos no ginásio durante o Encontro Nacional dos Calções Pretos" class="hero__foto" fetchpriority="high">
+                <div class="hero__duotone"></div>
+            </div>
+
             <div class="hero__content">
-                <img class="hero__banner" src="images/banner-encontro.png"
-                     alt="Encontro Nacional dos Calções Pretos 2026" fetchpriority="high">
-                <div class="hero__overlay">
-                    <h1 class="hero__title">Encontro Nacional dos Calções Pretos</h1>
+                <div class="hero__badge">
+                    <img src="images/logos/esefex-logo.png" alt="" class="hero__badge-img">
+                </div>
+
+                <p class="hero__eyebrow">Encontro Nacional</p>
+                <h1 class="hero__title">Calções Pretos</h1>
+                <p class="hero__meta">22 de Agosto de 2026 · Rio de Janeiro</p>
+
+                <div class="hero__countdown" id="countdown" aria-hidden="true">
+                    <div class="countdown__item">
+                        <span class="countdown__num" data-cd="dias">00</span>
+                        <span class="countdown__label">dias</span>
+                    </div>
+                    <div class="countdown__item">
+                        <span class="countdown__num" data-cd="horas">00</span>
+                        <span class="countdown__label">h</span>
+                    </div>
+                    <div class="countdown__item">
+                        <span class="countdown__num" data-cd="min">00</span>
+                        <span class="countdown__label">min</span>
+                    </div>
+                    <div class="countdown__item">
+                        <span class="countdown__num" data-cd="seg">00</span>
+                        <span class="countdown__label">s</span>
+                    </div>
+                </div>
+                <p class="hero__countdown-caption">até o fim das inscrições — 15 de agosto</p>
+                <p class="sr-only">Inscrições abertas até 15 de agosto de 2026.</p>
+
+                <div class="hero__ctas">
                     <a href="inscricao.html" class="cta-button">Inscreva-se Agora</a>
+                    <a href="#program" class="cta-button cta-button--outline">Ver Programação</a>
                 </div>
             </div>
         </section>
@@ -98,73 +134,70 @@
         <section class="section section--alt" id="program">
             <div class="container">
                 <h2 class="section-title">Programação</h2>
-                <h3 class="program-table-title">Dia 22 de Agosto — Sábado</h3>
-                <div class="program-table-wrap">
-                    <table class="program-table">
-                        <thead>
-                            <tr>
-                                <th scope="col"><span class="sr-only">Bloco</span></th>
-                                <th scope="col">Horário</th>
-                                <th scope="col">Atividade</th>
-                                <th scope="col">Local</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Atividades esportivas de participação voluntária -->
-                            <tr class="grp-cinza">
-                                <th scope="rowgroup" rowspan="5" class="grp-label">Atividades esportivas de participação voluntária</th>
-                                <td class="hora" rowspan="4">08:00 — 09:30</td>
-                                <td>Beach Tênis</td>
-                                <td class="local">Maruja</td>
-                            </tr>
-                            <tr class="grp-cinza">
-                                <td>Futvôlei</td>
-                                <td class="local">Maruja</td>
-                            </tr>
-                            <tr class="grp-cinza">
-                                <td>Futebol</td>
-                                <td class="local">Campo da EsEFEx</td>
-                            </tr>
-                            <tr class="grp-cinza">
-                                <td>Treinamento Funcional</td>
-                                <td class="local">Área de Treinamento Físico Funcional (ATFF)</td>
-                            </tr>
-                            <tr class="grp-cinza">
-                                <td class="hora">09:30 — 10:00</td>
-                                <td>Banho e troca de vestimenta</td>
-                                <td class="local">Vestiários MASC/FEM</td>
-                            </tr>
-                            <!-- Atividades Principais do Evento -->
-                            <tr class="grp-destaque">
-                                <th scope="rowgroup" rowspan="4" class="grp-label">Atividades Principais do Evento</th>
-                                <td class="hora">10:00 — 10:30</td>
-                                <td>Recepção dos participantes e entrega de kits</td>
-                                <td class="local">Saguão da EsEFEx</td>
-                            </tr>
-                            <tr class="grp-destaque">
-                                <td class="hora">10:30 — 11:30</td>
-                                <td>Palavras do Ch CCFEx</td>
-                                <td class="local">Ginásio LING</td>
-                            </tr>
-                            <tr class="grp-destaque">
-                                <td class="hora">11:30</td>
-                                <td>Foto Oficial</td>
-                                <td class="local">Ginásio LING</td>
-                            </tr>
-                            <tr class="grp-destaque">
-                                <td class="hora">12:00 — 14:00</td>
-                                <td>Almoço</td>
-                                <td class="local">Museu do Desporto — EsEFEx</td>
-                            </tr>
-                            <!-- Atividades Paralelas -->
-                            <tr class="grp-cinza">
-                                <th scope="row" class="grp-label">Atividades Paralelas</th>
-                                <td class="hora">10:00 — 14:00</td>
-                                <td>Funcionamento do Espaço Kids</td>
-                                <td class="local">Sala de Lutas da EsEFEx</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <h3 class="program-day">Dia 22 de Agosto — Sábado</h3>
+
+                <div class="program-groups">
+                    <div class="program-group">
+                        <h4 class="program-group__title">Atividades esportivas de participação voluntária</h4>
+                        <div class="program-row">
+                            <span class="program-row__time">08:00 — 09:30</span>
+                            <span class="program-row__activity">Beach Tênis</span>
+                            <span class="program-row__local">Maruja</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">08:00 — 09:30</span>
+                            <span class="program-row__activity">Futvôlei</span>
+                            <span class="program-row__local">Maruja</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">08:00 — 09:30</span>
+                            <span class="program-row__activity">Futebol</span>
+                            <span class="program-row__local">Campo da EsEFEx</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">08:00 — 09:30</span>
+                            <span class="program-row__activity">Treinamento Funcional</span>
+                            <span class="program-row__local">Área de Treinamento Físico Funcional (ATFF)</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">09:30 — 10:00</span>
+                            <span class="program-row__activity">Banho e troca de vestimenta</span>
+                            <span class="program-row__local">Vestiários MASC/FEM</span>
+                        </div>
+                    </div>
+
+                    <div class="program-group program-group--destaque">
+                        <h4 class="program-group__title">Atividades Principais do Evento</h4>
+                        <div class="program-row">
+                            <span class="program-row__time">10:00 — 10:30</span>
+                            <span class="program-row__activity">Recepção dos participantes e entrega de kits</span>
+                            <span class="program-row__local">Saguão da EsEFEx</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">10:30 — 11:30</span>
+                            <span class="program-row__activity">Palavras do Ch CCFEx</span>
+                            <span class="program-row__local">Ginásio LING</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">11:30</span>
+                            <span class="program-row__activity">Foto Oficial</span>
+                            <span class="program-row__local">Ginásio LING</span>
+                        </div>
+                        <div class="program-row">
+                            <span class="program-row__time">12:00 — 14:00</span>
+                            <span class="program-row__activity">Almoço</span>
+                            <span class="program-row__local">Museu do Desporto — EsEFEx</span>
+                        </div>
+                    </div>
+
+                    <div class="program-group">
+                        <h4 class="program-group__title">Atividades Paralelas</h4>
+                        <div class="program-row">
+                            <span class="program-row__time">10:00 — 14:00</span>
+                            <span class="program-row__activity">Funcionamento do Espaço Kids</span>
+                            <span class="program-row__local">Sala de Lutas da EsEFEx</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
