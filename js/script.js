@@ -81,7 +81,7 @@ function rafThrottle(fn) {
   const compacto = document.getElementById('countdown-inscricao');
   if (!el && !compacto) return;
 
-  const alvo = new Date('2026-08-15T23:59:59-03:00').getTime();
+  const alvo = new Date('2026-10-24T23:59:59-03:00').getTime();
   const campos = el ? {
     dias:  el.querySelector('[data-cd="dias"]'),
     horas: el.querySelector('[data-cd="horas"]'),
