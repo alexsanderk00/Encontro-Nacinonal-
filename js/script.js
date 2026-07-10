@@ -78,15 +78,16 @@ function rafThrottle(fn) {
 /* ── CONTAGEM REGRESSIVA (prazo de inscrição) ─────────────────── */
 (function initCountdown() {
   const el = document.getElementById('countdown');
-  if (!el) return;
+  const compacto = document.getElementById('countdown-inscricao');
+  if (!el && !compacto) return;
 
   const alvo = new Date('2026-08-15T23:59:59-03:00').getTime();
-  const campos = {
+  const campos = el ? {
     dias:  el.querySelector('[data-cd="dias"]'),
     horas: el.querySelector('[data-cd="horas"]'),
     min:   el.querySelector('[data-cd="min"]'),
     seg:   el.querySelector('[data-cd="seg"]')
-  };
+  } : null;
 
   function pad(n) { return String(n).padStart(2, '0'); }
 
@@ -95,7 +96,8 @@ function rafThrottle(fn) {
   function tick() {
     const diff = alvo - Date.now();
     if (diff <= 0) {
-      el.innerHTML = '<p class="hero__countdown-encerrado">Inscrições encerradas</p>';
+      if (el) el.innerHTML = '<p class="hero__countdown-encerrado">Inscrições encerradas</p>';
+      if (compacto) compacto.textContent = 'Inscrições encerradas.';
       if (intervalo) clearInterval(intervalo);
       return;
     }
@@ -103,10 +105,17 @@ function rafThrottle(fn) {
     const horas = Math.floor((diff % 86400000) / 3600000);
     const min   = Math.floor((diff % 3600000) / 60000);
     const seg   = Math.floor((diff % 60000) / 1000);
-    campos.dias.textContent  = pad(dias);
-    campos.horas.textContent = pad(horas);
-    campos.min.textContent   = pad(min);
-    campos.seg.textContent   = pad(seg);
+    if (campos) {
+      campos.dias.textContent  = pad(dias);
+      campos.horas.textContent = pad(horas);
+      campos.min.textContent   = pad(min);
+      campos.seg.textContent   = pad(seg);
+    }
+    if (compacto) {
+      compacto.textContent = dias > 0
+        ? '⏳ Restam ' + dias + (dias === 1 ? ' dia' : ' dias') + ' para o fim das inscrições'
+        : '⏳ Últimas horas para se inscrever!';
+    }
   }
 
   tick();

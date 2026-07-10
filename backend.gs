@@ -63,10 +63,15 @@ const HEADERS_PEDIDOS = [
 
 const EVENTO = {
   nome: 'Encontro Nacional dos Calções Pretos 2026',
-  data: '22 de agosto de 2026 (sábado)',
+  data: '31 de outubro de 2026 (sábado)',
   local: 'Escola de Educação Física do Exército — Rio de Janeiro/RJ',
   emailContato: 'encontrocalcaopreto@gmail.com'
 };
+
+/* Prazo final das inscrições: 15/08/2026 23:59:59 no horário de Brasília.
+   Fonte de verdade do corte — o frontend também fecha nessa data, mas é
+   este check que impede inscrições atrasadas mesmo com a página aberta. */
+const PRAZO_INSCRICAO_MS = new Date('2026-08-16T02:59:59Z').getTime();
 
 /* ── HELPERS ─────────────────────────────────────────────────────── */
 function jsonOut(obj) {
@@ -205,6 +210,8 @@ function doGet(e) {
 function validatePayload(data, tabela) {
   const inscrito = data.inscrito;
   const items = data.items;
+  if (data.tipo !== 'produto' && Date.now() > PRAZO_INSCRICAO_MS)
+    return { ok: false, message: 'As inscrições foram encerradas em 15 de agosto de 2026.' };
   if (!inscrito || !items || !items.length)
     return { ok: false, message: 'Dados incompletos. Preencha tudo e tente novamente.' };
   if (!data.gratuito && !data.paymentData)

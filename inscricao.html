@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inscrição — Encontro Nacional dos Calções Pretos 2026</title>
   <meta name="description" content="Inscreva-se no Encontro Nacional dos Calções Pretos 2026. Pagamento por Pix ou cartão.">
-  <meta name="theme-color" content="#e1ad01">
+  <meta name="theme-color" content="#0d0d0d">
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -663,8 +663,12 @@
       BACKEND_URL: 'https://script.google.com/macros/s/AKfycbyrVIrMX1EjB6DbDnCLBZ1B73IM3veQNFTWz8lhfQ3_9H-lvIUfNkCf07wsP41sRKPS/exec'
     };
 
-    /* Mude para false para pausar as inscrições. */
-    const VENDAS_ABERTAS = true;
+    /* Mude para false para pausar as inscrições manualmente.
+       Independentemente da flag, as vendas fecham sozinhas no prazo final
+       (o backend também valida a data — este é só o aviso visual). */
+    const VENDAS_ABERTAS_MANUAL = true;
+    const PRAZO_INSCRICAO = new Date('2026-08-15T23:59:59-03:00').getTime();
+    const VENDAS_ABERTAS = VENDAS_ABERTAS_MANUAL && Date.now() <= PRAZO_INSCRICAO;
 
     /* Categorias e preços — devem ser idênticos a PRECOS_INSCRICAO no backend.gs */
     const CATEGORIAS = {
