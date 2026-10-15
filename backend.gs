@@ -64,6 +64,7 @@ const HEADERS_PEDIDOS = [
 const EVENTO = {
   nome: 'Encontro Nacional dos Calções Pretos 2026',
   data: '31 de outubro de 2026 (sábado)',
+  horario: '10h às 14h',
   local: 'Escola de Educação Física do Exército — Rio de Janeiro/RJ',
   emailContato: 'encontrocalcaopreto@gmail.com'
 };
@@ -204,7 +205,13 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'check_payment' && e.parameter.id) {
     return checkPixPayment(e.parameter.id);
   }
-  return jsonOut({ status: 'ok', message: 'Backend do ' + EVENTO.nome + ' ativo.' });
+  // evento_data permite conferir de fora qual versão do script está publicada.
+  return jsonOut({
+    status: 'ok',
+    message: 'Backend do ' + EVENTO.nome + ' ativo.',
+    evento_data: EVENTO.data,
+    evento_horario: EVENTO.horario
+  });
 }
 
 function validatePayload(data, tabela) {
@@ -642,6 +649,7 @@ function sendConfirmationEmail(inscrito, items, total, paymentId, ehProduto) {
     corpo += '<div style="background:#fff6e0;border:1px solid #e1ad01;border-radius:8px;' +
       'padding:12px 16px;margin-top:16px;">' +
       '<strong>Data:</strong> ' + escapeHtml(EVENTO.data) + '<br>' +
+      '<strong>Horário:</strong> ' + escapeHtml(EVENTO.horario) + '<br>' +
       '<strong>Local:</strong> ' + escapeHtml(EVENTO.local) + '</div>';
   }
   corpo += '<p style="margin-top:16px;">Qualquer dúvida, responda este email ou escreva para ' +
