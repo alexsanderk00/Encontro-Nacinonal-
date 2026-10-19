@@ -64,7 +64,7 @@ const HEADERS_PEDIDOS = [
 const EVENTO = {
   nome: 'Encontro Nacional dos Calções Pretos 2026',
   data: '31 de outubro de 2026 (sábado)',
-  horario: '10h às 14h',
+  horario: '9h às 15h',
   local: 'Escola de Educação Física do Exército — Rio de Janeiro/RJ',
   emailContato: 'encontrocalcaopreto@gmail.com'
 };
