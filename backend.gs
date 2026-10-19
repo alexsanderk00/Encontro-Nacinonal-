@@ -893,3 +893,143 @@ function instalarTriggerResumo() {
   ScriptApp.newTrigger('gerarResumo').timeBased().everyHours(1).create();
   Logger.log('✓ Trigger instalado: gerarResumo a cada hora.');
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * AVISO DE CORREÇÃO EM MASSA (data/horário do evento)
+ *
+ * Para quem recebeu e-mail de confirmação com data ou horário antigos.
+ * Roda SÓ quando você executa — nada é enviado automaticamente.
+ *
+ * ORDEM RECOMENDADA (menu "Executar" do editor do Apps Script):
+ *   1. simularAvisoCorrecao()       → só mostra no Registro quem receberia
+ *   2. enviarAvisoCorrecaoTeste()   → manda UM e-mail de teste para você
+ *   3. enviarAvisoCorrecao()        → envio real
+ *
+ * Regras do envio real:
+ *   - Só aba "Inscrições", só status Aprovado / Confirmado (não envia para
+ *     Pix pendente, recusado, expirado).
+ *   - 1 e-mail por endereço, mesmo que tenha mais de uma inscrição.
+ *   - Marca "Sim — data" na coluna "Aviso correção enviado" da planilha.
+ *     Pode rodar de novo sem duplicar (só envia para quem ainda não tem "Sim").
+ *   - Respeita a cota diária de e-mails do Google (conta Gmail comum: ~100/dia;
+ *     Workspace: ~1500/dia). Se acabar, o restante fica para o dia seguinte:
+ *     basta rodar enviarAvisoCorrecao() de novo.
+ * ═══════════════════════════════════════════════════════════════════ */
+const COL_AVISO = 'Aviso correção enviado';
+const SITE_URL  = 'https://www.encontrocalcaopreto.com.br';
+
+function emailAvisoCorrecao_(nome) {
+  const primeiro = escapeHtml(String(nome || '').trim().split(' ')[0]);
+  let corpo = '<p>Olá' + (primeiro ? ', <strong>' + primeiro + '</strong>' : '') + '!</p>';
+  corpo += '<p>Sua inscrição no <strong>' + escapeHtml(EVENTO.nome) +
+           '</strong> <strong>continua confirmada</strong> — você não precisa fazer nada.</p>';
+  corpo += '<p>Estamos escrevendo porque o e-mail de confirmação que você recebeu antes pode ter ' +
+           'trazido <strong>data ou horário desatualizados</strong>. Pedimos desculpas pela confusão. ' +
+           'As informações corretas são:</p>';
+  corpo += '<div style="background:#fff6e0;border:1px solid #e1ad01;border-radius:8px;' +
+           'padding:12px 16px;margin:16px 0;">' +
+           '<strong>Data:</strong> ' + escapeHtml(EVENTO.data) + '<br>' +
+           '<strong>Horário:</strong> ' + escapeHtml(EVENTO.horario) + '<br>' +
+           '<strong>Local:</strong> ' + escapeHtml(EVENTO.local) + '</div>';
+  corpo += '<p>A programação completa está em <a href="' + SITE_URL + '">' +
+           SITE_URL.replace('https://', '') + '</a>.</p>';
+  corpo += '<p>Qualquer dúvida, responda este e-mail ou escreva para ' +
+           escapeHtml(EVENTO.emailContato) + '.</p>';
+  corpo += '<p>Nos vemos lá!</p>';
+  return emailShell('Informações atualizadas do evento', corpo);
+}
+
+/* Lê a aba Inscrições e agrupa os destinatários por e-mail. */
+function listarDestinatariosAviso_(criarColuna) {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ABA_INSCRICOES);
+  if (!sheet || sheet.getLastRow() < 2) return { sheet: sheet, colAviso: 0, grupos: [], ignorados: 0 };
+
+  const colEmail  = acharColuna(sheet, 'Email');
+  const colNome   = acharColuna(sheet, 'Nome');
+  const colStatus = acharColuna(sheet, 'Status Pagamento');
+  if (!colEmail || !colStatus)
+    throw new Error('Não achei as colunas "Email" e "Status Pagamento" na aba ' + ABA_INSCRICOES);
+
+  let colAviso = acharColuna(sheet, COL_AVISO);
+  if (!colAviso && criarColuna) {
+    colAviso = sheet.getLastColumn() + 1;
+    sheet.getRange(1, colAviso).setValue(COL_AVISO).setFontWeight('bold');
+  }
+
+  const dados = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  const porEmail = {};
+  let ignorados = 0;
+  dados.forEach(function (r, i) {
+    const status = String(r[colStatus - 1] || '');
+    const email  = String(r[colEmail - 1] || '').trim().toLowerCase();
+    if ((status.indexOf('Aprovado') < 0 && status.indexOf('Confirmado') < 0) || email.indexOf('@') < 1) {
+      ignorados++;
+      return;
+    }
+    const g = porEmail[email] ||
+      (porEmail[email] = { email: email, nome: String(r[colNome - 1] || ''), linhas: [], enviado: false });
+    g.linhas.push(i + 2);
+    if (colAviso && String(r[colAviso - 1] || '').indexOf('Sim') === 0) g.enviado = true;
+  });
+  return {
+    sheet: sheet,
+    colAviso: colAviso,
+    grupos: Object.keys(porEmail).map(function (k) { return porEmail[k]; }),
+    ignorados: ignorados
+  };
+}
+
+/* 1) SIMULAÇÃO — não envia nada nem altera a planilha. */
+function simularAvisoCorrecao() {
+  const info = listarDestinatariosAviso_(false);
+  const pendentes = info.grupos.filter(function (g) { return !g.enviado; });
+  Logger.log('SIMULAÇÃO — nada foi enviado.');
+  Logger.log('Receberiam o aviso: ' + pendentes.length + ' e-mail(s). Já marcados como enviados: ' +
+             (info.grupos.length - pendentes.length) + '. Linhas ignoradas (Pix pendente/recusado etc.): ' + info.ignorados + '.');
+  Logger.log('Cota diária de e-mails restante: ' + MailApp.getRemainingDailyQuota());
+  pendentes.forEach(function (g) { Logger.log(' • ' + g.nome + ' <' + g.email + '>'); });
+}
+
+/* 2) TESTE — manda um único e-mail, para a conta que está rodando o script. */
+function enviarAvisoCorrecaoTeste() {
+  const para = Session.getEffectiveUser().getEmail() || EVENTO.emailContato;
+  MailApp.sendEmail({
+    to: para,
+    subject: '[TESTE] Informações atualizadas — ' + EVENTO.nome,
+    htmlBody: emailAvisoCorrecao_('Participante Teste'),
+    name: EVENTO.nome,
+    replyTo: EVENTO.emailContato
+  });
+  Logger.log('E-mail de teste enviado para ' + para + '. Confira a caixa de entrada (e o spam).');
+}
+
+/* 3) ENVIO REAL. */
+function enviarAvisoCorrecao() {
+  const info = listarDestinatariosAviso_(true);
+  const pendentes = info.grupos.filter(function (g) { return !g.enviado; });
+  Logger.log('Para enviar agora: ' + pendentes.length + ' e-mail(s). Cota restante hoje: ' + MailApp.getRemainingDailyQuota());
+
+  let enviados = 0, falhas = 0, parouPorCota = false;
+  const carimbo = 'Sim — ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
+  for (let i = 0; i < pendentes.length; i++) {
+    const g = pendentes[i];
+    if (MailApp.getRemainingDailyQuota() < 1) { parouPorCota = true; break; }
+    try {
+      MailApp.sendEmail({
+        to: g.email,
+        subject: 'Informações atualizadas do evento — ' + EVENTO.nome,
+        htmlBody: emailAvisoCorrecao_(g.nome),
+        name: EVENTO.nome,
+        replyTo: EVENTO.emailContato
+      });
+      g.linhas.forEach(function (n) { info.sheet.getRange(n, info.colAviso).setValue(carimbo); });
+      enviados++;
+    } catch (e) {
+      falhas++;
+      Logger.log('FALHA ' + g.email + ': ' + e);
+    }
+  }
+  Logger.log('Enviados: ' + enviados + ' | Falhas: ' + falhas +
+             (parouPorCota ? ' | PAROU: cota diária esgotada — rode enviarAvisoCorrecao() de novo amanhã.' : ''));
+}
