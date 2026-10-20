@@ -1033,3 +1033,109 @@ function enviarAvisoCorrecao() {
   Logger.log('Enviados: ' + enviados + ' | Falhas: ' + falhas +
              (parouPorCota ? ' | PAROU: cota diária esgotada — rode enviarAvisoCorrecao() de novo amanhã.' : ''));
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * CANCELAMENTOS MANUAIS (reembolsos feitos por fora do site)
+ *
+ * Marca como "Cancelado (reembolsado)" as inscrições de quem foi
+ * reembolsado. Assim elas saem dos totais do resumo e do aviso em massa.
+ *
+ * COMO USAR (editor do Apps Script → Executar; não precisa de nova implantação):
+ *   1. simularCancelamentos()  → só mostra no Registro o que seria alterado
+ *   2. aplicarCancelamentos()  → altera a planilha
+ *
+ * SEGURANÇA: uma linha só é cancelada se bater o CPF (6 dígitos do meio)
+ * ou o ID do pagamento E a soma dos totais das inscrições ativas da pessoa
+ * for igual ao valor reembolsado. Qualquer dúvida (valor diferente, só o
+ * nome bate, nada encontrado) → NÃO altera nada e explica no Registro.
+ * Pode rodar mais de uma vez: linhas já canceladas são ignoradas.
+ *
+ * Para um novo cancelamento, acrescente um item na lista abaixo.
+ * ═══════════════════════════════════════════════════════════════════ */
+const STATUS_CANCELADO = 'Cancelado (reembolsado)';
+const COL_OBS_CANCEL   = 'Obs. cancelamento';
+const CANCELAMENTOS = [
+  { nome: 'Robesio da Costa Vaz',     cpfMeio: '603607', valor: 70,  idPagamento: '174438535160',
+    obs: 'Devolução aprovada pelo Mercado Pago em 20/10/2026 (R$ 70,00)' },
+  { nome: 'Marcio Cesar Lass',        cpfMeio: '206409', valor: 70,
+    obs: 'Reembolso por Pix em 20/10/2026 (R$ 70,00)' },
+  { nome: 'Otavio Sustenei da Silva', cpfMeio: '246289', valor: 140,
+    obs: 'Reembolso por Pix em 20/10/2026 (R$ 140,00)' }
+];
+
+function normTxt_(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function simularCancelamentos() { processarCancelamentos_(false); }
+function aplicarCancelamentos() { processarCancelamentos_(true); }
+
+function processarCancelamentos_(aplicar) {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ABA_INSCRICOES);
+  if (!sheet || sheet.getLastRow() < 2) { Logger.log('Aba ' + ABA_INSCRICOES + ' vazia ou inexistente.'); return; }
+
+  const c = {
+    nome:   acharColuna(sheet, 'Nome'),
+    cpf:    acharColuna(sheet, 'CPF'),
+    total:  acharColuna(sheet, 'Total Bruto (R$)'),
+    status: acharColuna(sheet, 'Status Pagamento'),
+    pid:    acharColuna(sheet, 'ID Pagamento')
+  };
+  Object.keys(c).forEach(function (k) {
+    if (!c[k]) throw new Error('Coluna não encontrada na aba ' + ABA_INSCRICOES + ': ' + k);
+  });
+  let colObs = acharColuna(sheet, COL_OBS_CANCEL);
+  if (!colObs && aplicar) {
+    colObs = sheet.getLastColumn() + 1;
+    sheet.getRange(1, colObs).setValue(COL_OBS_CANCEL).setFontWeight('bold');
+  }
+
+  Logger.log(aplicar ? '=== APLICANDO CANCELAMENTOS ===' : '=== SIMULAÇÃO (nada será alterado) ===');
+  const dados = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+
+  CANCELAMENTOS.forEach(function (cn) {
+    const nomeN = normTxt_(cn.nome);
+    const fortes = [], fracos = [];
+    dados.forEach(function (r, i) {
+      const cpfD = String(r[c.cpf - 1] || '').replace(/\D/g, '');
+      const porCpf  = cpfD.length === 11 && cpfD.substr(3, 6) === cn.cpfMeio;
+      const porId   = !!cn.idPagamento && String(r[c.pid - 1]).trim() === cn.idPagamento;
+      const porNome = normTxt_(r[c.nome - 1]) === nomeN;
+      const item = { linha: i + 2, nome: r[c.nome - 1], total: parseFloat(String(r[c.total - 1]).replace(',', '.')) || 0,
+                     status: String(r[c.status - 1] || '') };
+      if (porCpf || porId) fortes.push(item);
+      else if (porNome) fracos.push(item);
+    });
+
+    Logger.log('--- ' + cn.nome + ' (reembolso R$ ' + cn.valor + ') ---');
+    fracos.forEach(function (f) {
+      Logger.log('  ⚠ linha ' + f.linha + ' tem o mesmo NOME mas CPF/ID diferentes (' + f.status + ', R$ ' + f.total +
+                 ') — NÃO alterada; confira manualmente se for a mesma pessoa.');
+    });
+    if (!fortes.length) { Logger.log('  ✗ Nenhuma linha encontrada por CPF/ID. Nada alterado.'); return; }
+
+    const ativas = fortes.filter(function (f) { return f.status.indexOf('Aprovado') >= 0 || f.status.indexOf('Confirmado') >= 0; });
+    fortes.forEach(function (f) {
+      if (ativas.indexOf(f) < 0) Logger.log('  • linha ' + f.linha + ' (' + f.nome + ') já está com status "' + f.status + '" — ignorada.');
+    });
+    if (!ativas.length) { Logger.log('  ✓ Nenhuma inscrição ativa (provavelmente já cancelada). Nada a fazer.'); return; }
+
+    const soma = ativas.reduce(function (s, f) { return s + f.total; }, 0);
+    ativas.forEach(function (f) {
+      Logger.log('  → linha ' + f.linha + ': ' + f.nome + ' | R$ ' + f.total + ' | status atual: ' + f.status);
+    });
+    if (Math.abs(soma - cn.valor) > 0.009) {
+      Logger.log('  ✗ VALOR DIFERENTE: planilha soma R$ ' + soma + ' mas o reembolso foi R$ ' + cn.valor +
+                 '. NÃO alterado — confira (pode ser cancelamento parcial).');
+      return;
+    }
+    if (!aplicar) { Logger.log('  ✓ Seria marcado como "' + STATUS_CANCELADO + '" (' + ativas.length + ' linha(s)).'); return; }
+    ativas.forEach(function (f) {
+      sheet.getRange(f.linha, c.status).setValue(STATUS_CANCELADO);
+      sheet.getRange(f.linha, colObs).setValue(cn.obs);
+    });
+    Logger.log('  ✓ ' + ativas.length + ' linha(s) marcada(s) como "' + STATUS_CANCELADO + '".');
+  });
+}
