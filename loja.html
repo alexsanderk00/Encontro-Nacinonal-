@@ -803,6 +803,13 @@
 
       formEl.addEventListener('input', checkFormAndPayment);
       formEl.addEventListener('change', checkFormAndPayment);
+      /* E-mail alterado depois que o pagamento abriu → recria o Brick com o novo. */
+      document.getElementById('email').addEventListener('change', function () {
+        if (state.brickController && this.value.trim() !== emailNoBrick) {
+          destruirBrick();
+          checkFormAndPayment();
+        }
+      });
 
       /* ── Mercado Pago ── */
       let mp = null;
@@ -849,14 +856,13 @@
         }
       }
 
-      /* Repassa e-mail/CPF já digitados ao Mercado Pago (ver inscricao.html):
-         evita o "Dado obrigatório" causado pelo preenchimento automático do iPhone. */
+      /* Repassa ao Mercado Pago o e-mail já digitado no nosso formulário (o
+         campo de e-mail some do Brick). O CPF NÃO é repassado: o campo do Brick
+         é o CPF do TITULAR DO CARTÃO, que pode ser outra pessoa. */
+      let emailNoBrick = '';
       function payerParaBrick() {
-        const email = document.getElementById('email').value.trim();
-        const cpf = document.getElementById('cpf').value.replace(/\D/g, '');
-        const payer = { email: email };
-        if (cpf.length === 11) payer.identification = { type: 'CPF', number: cpf };
-        return payer;
+        emailNoBrick = document.getElementById('email').value.trim();
+        return { email: emailNoBrick };
       }
 
       function collectFormData() {
