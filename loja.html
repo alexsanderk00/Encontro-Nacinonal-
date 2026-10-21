@@ -846,7 +846,14 @@
             callbacks: {
               onReady: function () {},
               onSubmit: async function (cardFormData) { await processPayment(cardFormData); },
-              onError: function () { showError(paymentError, 'Erro no pagamento. Tente novamente.'); }
+              onError: function (error) {
+              // Mostra o motivo informado pelo Mercado Pago (ajuda a diagnosticar pelo print).
+              const motivo = error && (error.cause || error.message || error.type);
+              if (window.console) console.error('Mercado Pago Brick:', error);
+              if (error && error.type === 'non_critical') return;
+              showError(paymentError, 'Erro no pagamento' + (motivo ? ' (' + motivo + ')' : '') +
+                '. Tente novamente fora da aba anônima ou pague com Pix.');
+            }
             }
           });
         } catch (err) {
