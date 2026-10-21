@@ -252,6 +252,8 @@
     #payment-brick-container { max-width: 600px; margin: 0 auto; }
     .payment-section__sub { text-align: center; color: var(--texto); margin-bottom: 1.5rem; font-size: .95rem; }
 
+    .payment-section__dica { font-size: .85rem; max-width: 560px; margin: -1rem auto 1.5rem; }
+
     /* ── MODAIS ── */
     .modal {
       display: none;
@@ -498,6 +500,7 @@
         <div class="container">
           <h2 class="bloco__title">Pagamento</h2>
           <p class="payment-section__sub">Escolha a forma de pagamento. Aceitamos Pix, cartão de crédito e cartão de débito.</p>
+          <p class="payment-section__sub payment-section__dica"><strong>Pagando com cartão?</strong> Digite os dados do cartão — não use o preenchimento automático do celular. Se aparecer “Dado obrigatório” num campo já preenchido, apague e digite de novo, ou pague com <strong>Pix</strong>.</p>
           <div id="payment-brick-container"></div>
           <div class="msg msg--error" id="paymentError" role="alert"></div>
         </div>
@@ -828,7 +831,7 @@
         try {
           const builder = mp.bricks();
           state.brickController = await builder.create('payment', 'payment-brick-container', {
-            initialization: { amount: state.total },
+            initialization: { amount: state.total, payer: payerParaBrick() },
             customization: {
               visual: { style: { theme: 'default', customVariables: { baseColor: '#e1ad01' } } },
               paymentMethods: { bankTransfer: 'all', creditCard: 'all', debitCard: 'all' }
@@ -844,6 +847,16 @@
         } finally {
           brickInitializing = false;
         }
+      }
+
+      /* Repassa e-mail/CPF já digitados ao Mercado Pago (ver inscricao.html):
+         evita o "Dado obrigatório" causado pelo preenchimento automático do iPhone. */
+      function payerParaBrick() {
+        const email = document.getElementById('email').value.trim();
+        const cpf = document.getElementById('cpf').value.replace(/\D/g, '');
+        const payer = { email: email };
+        if (cpf.length === 11) payer.identification = { type: 'CPF', number: cpf };
+        return payer;
       }
 
       function collectFormData() {
