@@ -241,7 +241,8 @@ function doGet(e) {
     status: 'ok',
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
-    evento_horario: EVENTO.horario
+    evento_horario: EVENTO.horario,
+    versao: '2026-10-22-seguranca'
   });
 }
 
