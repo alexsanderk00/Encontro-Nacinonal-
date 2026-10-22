@@ -13,6 +13,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/shared.css">
   <style>
+    /* Campo armadilha anti-robô: fora da tela, humano não vê nem preenche. */
+    .campo-armadilha { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
     /* Garante que o atributo hidden sempre esconda (vence display:flex etc.) */
     [hidden] { display: none !important; }
 
@@ -487,7 +489,11 @@
               <label for="observacoes">Observações</label>
               <textarea id="observacoes" name="observacoes" placeholder="Opcional"></textarea>
             </div>
-            <div class="form-group form-group--full lgpd-check">
+            <div class="campo-armadilha" aria-hidden="true">
+            <label for="hp_campo_x9">Não preencha este campo</label>
+            <input type="text" id="hp_campo_x9" name="hp_campo_x9" tabindex="-1" autocomplete="off">
+          </div>
+          <div class="form-group form-group--full lgpd-check">
               <input type="checkbox" id="lgpdConsent" required>
               <span>Li e aceito a <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> e autorizo o tratamento dos meus dados pessoais para a realização deste pedido, conforme a LGPD.</span>
             </div>
@@ -901,7 +907,8 @@
         hideError(paymentError);
         const inscrito = collectFormData();
         const items = collectItems();
-        const payload = { tipo: 'produto', paymentData: paymentData, inscrito: inscrito, items: items, total: state.total };
+        const payload = { tipo: 'produto', paymentData: paymentData, inscrito: inscrito, items: items, total: state.total,
+          site_url: document.getElementById('hp_campo_x9').value };
 
         try {
           const result = await postWithTimeout(CONFIG.BACKEND_URL, payload, 30000);

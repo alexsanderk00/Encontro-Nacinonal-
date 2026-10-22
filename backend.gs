@@ -95,6 +95,37 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+/* SEGURANÇA — célula da planilha. O Sheets interpreta textos que começam com
+   = + - @ como FÓRMULA (ex.: =IMPORTXML(...) poderia vazar dados da planilha
+   para fora). Prefixar com apóstrofo força texto. Também corta o tamanho. */
+function celula(v, max) {
+  let s = String(v === undefined || v === null ? '' : v).slice(0, max || 200);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return s;
+}
+
+/* SEGURANÇA — limite por janela de tempo (CacheService). true = pode seguir. */
+function dentroDoLimite(chave, maximo, segundos) {
+  const cache = CacheService.getScriptCache();
+  const atual = parseInt(cache.get(chave) || '0', 10);
+  if (atual >= maximo) return false;
+  cache.put(chave, String(atual + 1), segundos);
+  return true;
+}
+
+/* SEGURANÇA — formato mínimo dos dados pessoais (tudo vem da internet). */
+function validarInscrito(ins, ehProduto) {
+  const nome = String(ins.nome || '').trim();
+  const email = String(ins.email || '').trim();
+  const tel = String(ins.telefone || '').replace(/\D/g, '');
+  if (nome.length < 3 || nome.length > 120) return 'Nome inválido.';
+  if (email.length > 120 || !/^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']{2,}$/.test(email)) return 'E-mail inválido.';
+  if (tel && (tel.length < 10 || tel.length > 11)) return 'Telefone inválido.';
+  if (!ehProduto && String(ins.participantes || '').length > 3000) return 'Lista de participantes muito longa.';
+  if (ehProduto && String(ins.observacoes || '').length > 500) return 'Observações muito longas.';
+  return '';
+}
+
 function maskCpf(cpf) {
   const d = String(cpf || '').replace(/\D/g, '');
   if (d.length !== 11) return '—';
@@ -219,11 +250,19 @@ function validatePayload(data, tabela) {
   const items = data.items;
   if (data.tipo !== 'produto' && Date.now() > PRAZO_INSCRICAO_MS)
     return { ok: false, message: 'As inscrições foram encerradas em 28 de outubro de 2026.' };
-  if (!inscrito || !items || !items.length)
+  if (!inscrito || !items || !items.length || items.length > 20)
     return { ok: false, message: 'Dados incompletos. Preencha tudo e tente novamente.' };
+  // Armadilha para robôs: campo invisível no formulário que humano não preenche.
+  if (data.site_url) return { ok: false, message: 'Não foi possível processar. Tente novamente.' };
+  // Limite geral (protege cota de e-mail/planilha contra enxurrada de pedidos).
+  if (!dentroDoLimite('rl_global', 40, 60))
+    return { ok: false, message: 'Sistema muito movimentado. Aguarde um minuto e tente novamente.' };
   if (!data.gratuito && !data.paymentData)
     return { ok: false, message: 'Dados de pagamento ausentes.' };
-  if (!checkRateLimit(inscrito.cpf))
+  const erroDados = validarInscrito(inscrito, data.tipo === 'produto');
+  if (erroDados) return { ok: false, message: erroDados };
+  if (!checkRateLimit(inscrito.cpf) ||
+      !dentroDoLimite('rl_em_' + String(inscrito.email).trim().toLowerCase(), 5, 60))
     return { ok: false, message: 'Muitas tentativas. Aguarde um minuto e tente novamente.' };
   if (!validarCPF(inscrito.cpf))
     return { ok: false, message: 'CPF inválido.' };
@@ -238,6 +277,10 @@ function handleGratuito(inscrito, items, ehProduto, tabela) {
     if ((tabela[it.tipo] || 0) > 0)
       return jsonOut({ status: 'rejected', message: 'Pedido gratuito inválido — contém itens pagos.' });
   }
+  // Inscrição grátis não passa pelo Mercado Pago: limita volume por hora
+  // (evita encher a planilha/lista do almoço com inscrições falsas).
+  if (!dentroDoLimite('rl_gratis', 25, 3600))
+    return jsonOut({ status: 'rejected', message: 'Limite de inscrições gratuitas atingido. Tente mais tarde ou escreva para ' + EVENTO.emailContato });
   const idInterno = 'GRATIS-' + Utilities.getUuid().slice(0, 8).toUpperCase();
   const fakeResult = { id: idInterno, payment_type_id: 'gratuito' };
   tryOrLog(function () { saveToSheet(inscrito, items, 0, fakeResult, ehProduto, 'Confirmado (Gratuito)'); }, 'saveToSheet gratuito');
@@ -247,6 +290,13 @@ function handleGratuito(inscrito, items, ehProduto, tabela) {
 
 /* ── ROTEAMENTO DO RESULTADO DO PAGAMENTO ────────────────────────── */
 function routePaymentResult(result, inscrito, items, total, ehProduto) {
+  // Sem ID = o Mercado Pago nem criou o pagamento (token falso/expirado, dados
+  // inválidos). Não grava na planilha nem manda e-mail — era um atalho para
+  // robôs gerarem linhas e e-mails para qualquer endereço sem pagar nada.
+  if (!result || !result.id) {
+    return jsonOut({ status: 'rejected', status_detail: '',
+      message: 'Pagamento não processado. Confira os dados do cartão ou use Pix.' });
+  }
   if (result.status === 'approved') return handleApproved(result, inscrito, items, total, ehProduto);
   if (result.status === 'pending' && result.payment_method_id === 'pix')
     return handlePixPending(result, inscrito, items, total, ehProduto);
@@ -586,8 +636,10 @@ function saveToSheet(inscrito, items, total, paymentResult, ehProduto, statusOve
   const taxaReais = total * (taxaPct / 100);
   const valorLiquido = total - taxaReais;
 
+  // Tudo que vem do formulário passa por celula() (anti-fórmula + tamanho).
   const comuns = [
-    new Date(), inscrito.nome, inscrito.email, inscrito.cpf, inscrito.telefone || ''
+    new Date(), celula(inscrito.nome, 120), celula(inscrito.email, 120),
+    celula(inscrito.cpf, 20), celula(inscrito.telefone, 20)
   ];
   const finais = [
     detalhe, qtdTotal, total, formaPgto,
@@ -598,8 +650,9 @@ function saveToSheet(inscrito, items, total, paymentResult, ehProduto, statusOve
     String(paymentResult.id)
   ];
   const meio = ehProduto
-    ? [inscrito.observacoes || '']
-    : [inscrito.cidade || '', inscrito.anoFormacao || '', inscrito.categoria || '', inscrito.participantes || ''];
+    ? [celula(inscrito.observacoes, 500)]
+    : [celula(inscrito.cidade, 80), celula(inscrito.anoFormacao, 10),
+       celula(inscrito.categoria, 60), celula(inscrito.participantes, 3000)];
 
   sheet.appendRow(comuns.concat(meio).concat(finais));
 }
