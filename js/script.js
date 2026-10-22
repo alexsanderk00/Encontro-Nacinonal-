@@ -76,12 +76,34 @@ function rafThrottle(fn) {
 })();
 
 /* ── CONTAGEM REGRESSIVA (prazo de inscrição) ─────────────────── */
+/* Prazo divulgado: 24/10. Inscrições prorrogadas até 28/10, mas a prorrogação
+   só aparece no site depois que o prazo de 24/10 acaba: os textos marcados com
+   data-prorroga trocam para a nova data, os avisos data-prorroga-aviso aparecem
+   e a contagem passa a mirar o dia 28.
+   Para pré-visualizar: abra a página com ?previa-prorrogacao no endereço. */
+const PRAZO_DIVULGADO = new Date('2026-10-24T23:59:59-03:00').getTime();
+const PRAZO_PRORROGADO = new Date('2026-10-28T23:59:59-03:00').getTime();
+const PREVIA_PRORROGACAO = /[?&]previa-prorrogacao\b/.test(location.search);
+
+function agoraParaPrazo() {
+  return PREVIA_PRORROGACAO ? PRAZO_DIVULGADO + 1000 : Date.now();
+}
+
+function aplicarProrrogacao() {
+  document.querySelectorAll('[data-prorroga]').forEach(function (e) {
+    e.textContent = e.getAttribute('data-prorroga');
+  });
+  document.querySelectorAll('[data-prorroga-aviso]').forEach(function (e) { e.hidden = false; });
+}
+
 (function initCountdown() {
   const el = document.getElementById('countdown');
   const compacto = document.getElementById('countdown-inscricao');
   if (!el && !compacto) return;
 
-  const alvo = new Date('2026-10-24T23:59:59-03:00').getTime();
+  let prorrogado = agoraParaPrazo() > PRAZO_DIVULGADO;
+  if (prorrogado) aplicarProrrogacao();
+  const desvio = agoraParaPrazo() - Date.now();   // só ≠ 0 na prévia
   const campos = el ? {
     dias:  el.querySelector('[data-cd="dias"]'),
     horas: el.querySelector('[data-cd="horas"]'),
@@ -94,7 +116,14 @@ function rafThrottle(fn) {
   let intervalo = null;
 
   function tick() {
-    const diff = alvo - Date.now();
+    const agora = Date.now() + desvio;
+    // Virou o prazo divulgado com a página aberta → mostra a prorrogação.
+    if (!prorrogado && agora > PRAZO_DIVULGADO) {
+      prorrogado = true;
+      aplicarProrrogacao();
+    }
+    const alvo = prorrogado ? PRAZO_PRORROGADO : PRAZO_DIVULGADO;
+    const diff = alvo - agora;
     if (diff <= 0) {
       if (el) el.innerHTML = '<p class="hero__countdown-encerrado">Inscrições encerradas</p>';
       if (compacto) compacto.textContent = 'Inscrições encerradas.';
