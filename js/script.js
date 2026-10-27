@@ -76,34 +76,53 @@ function rafThrottle(fn) {
 })();
 
 /* ── CONTAGEM REGRESSIVA (prazo de inscrição) ─────────────────── */
-/* Prazo divulgado: 24/10. Inscrições prorrogadas até 28/10, mas a prorrogação
-   só aparece no site depois que o prazo de 24/10 acaba: os textos marcados com
-   data-prorroga trocam para a nova data, os avisos data-prorroga-aviso aparecem
-   e a contagem passa a mirar o dia 28.
-   Para pré-visualizar: abra a página com ?previa-prorrogacao no endereço. */
-const PRAZO_DIVULGADO = new Date('2026-10-24T23:59:59-03:00').getTime();
+/* Fases (trocam sozinhas, inclusive com a página aberta):
+     0 — até 24/10 23:59 → prazo divulgado, contagem até 24/10
+     1 — até 28/10 23:59 → "prorrogado": data-prorroga / data-prorroga-aviso, contagem até 28/10
+     2 — até 31/10 09:00 → "na hora": data-na-hora / data-na-hora-aviso, contagem até o início do Encontro
+     3 — até 01/11 23:59 → Encontro acontecendo, inscrição na hora pelo site
+     4 — depois          → inscrições encerradas
+   O corte real fica no backend.gs (PRAZO_INSCRICAO_MS) e no inscricao.html.
+   Pré-visualizar: ?previa-prorrogacao, ?previa-na-hora ou ?previa-dia-evento. */
+const PRAZO_DIVULGADO  = new Date('2026-10-24T23:59:59-03:00').getTime();
 const PRAZO_PRORROGADO = new Date('2026-10-28T23:59:59-03:00').getTime();
-const PREVIA_PRORROGACAO = /[?&]previa-prorrogacao\b/.test(location.search);
+const INICIO_EVENTO    = new Date('2026-10-31T09:00:00-03:00').getTime();
+const PRAZO_FINAL      = new Date('2026-11-01T23:59:59-03:00').getTime();
 
-function agoraParaPrazo() {
-  return PREVIA_PRORROGACAO ? PRAZO_DIVULGADO + 1000 : Date.now();
+const PREVIA = (function () {
+  const q = location.search;
+  if (/[?&]previa-dia-evento\b/.test(q)) return new Date('2026-10-31T10:00:00-03:00').getTime();
+  if (/[?&]previa-na-hora\b/.test(q))    return new Date('2026-10-29T10:00:00-03:00').getTime();
+  if (/[?&]previa-prorrogacao\b/.test(q)) return new Date('2026-10-25T10:00:00-03:00').getTime();
+  return 0;
+})();
+
+function faseDoPrazo(agora) {
+  if (agora <= PRAZO_DIVULGADO) return 0;
+  if (agora <= PRAZO_PRORROGADO) return 1;
+  if (agora <= INICIO_EVENTO) return 2;
+  if (agora <= PRAZO_FINAL) return 3;
+  return 4;
 }
 
-function aplicarProrrogacao() {
-  document.querySelectorAll('[data-prorroga]').forEach(function (e) {
-    e.textContent = e.getAttribute('data-prorroga');
+function aplicarFase(fase) {
+  document.querySelectorAll('[data-prorroga],[data-na-hora]').forEach(function (e) {
+    const t = fase >= 2 && e.hasAttribute('data-na-hora') ? e.getAttribute('data-na-hora')
+      : fase >= 1 && e.hasAttribute('data-prorroga') ? e.getAttribute('data-prorroga') : null;
+    if (t !== null) e.textContent = t;
   });
-  document.querySelectorAll('[data-prorroga-aviso]').forEach(function (e) { e.hidden = false; });
+  document.querySelectorAll('[data-prorroga-aviso]').forEach(function (e) { e.hidden = fase !== 1; });
+  document.querySelectorAll('[data-na-hora-aviso]').forEach(function (e) { e.hidden = !(fase === 2 || fase === 3); });
 }
 
 (function initCountdown() {
   const el = document.getElementById('countdown');
   const compacto = document.getElementById('countdown-inscricao');
+  const legenda = document.querySelector('.hero__countdown-caption');
   if (!el && !compacto) return;
 
-  let prorrogado = agoraParaPrazo() > PRAZO_DIVULGADO;
-  if (prorrogado) aplicarProrrogacao();
-  const desvio = agoraParaPrazo() - Date.now();   // só ≠ 0 na prévia
+  const desvio = PREVIA ? PREVIA - Date.now() : 0;   // só ≠ 0 na prévia
+  let fase = -1;
   const campos = el ? {
     dias:  el.querySelector('[data-cd="dias"]'),
     horas: el.querySelector('[data-cd="horas"]'),
@@ -115,21 +134,30 @@ function aplicarProrrogacao() {
 
   let intervalo = null;
 
+  function mensagemFinal(htmlHero, textoCompacto) {
+    if (el) el.innerHTML = htmlHero;
+    if (legenda) legenda.hidden = true;
+    if (compacto) compacto.textContent = textoCompacto;
+  }
+
   function tick() {
     const agora = Date.now() + desvio;
-    // Virou o prazo divulgado com a página aberta → mostra a prorrogação.
-    if (!prorrogado && agora > PRAZO_DIVULGADO) {
-      prorrogado = true;
-      aplicarProrrogacao();
+    const f = faseDoPrazo(agora);
+    if (f !== fase) { fase = f; aplicarFase(fase); }
+
+    if (fase === 3) {
+      mensagemFinal('<p class="hero__countdown-encerrado">O Encontro está acontecendo! Inscreva-se na hora, pelo site.</p>',
+        '📍 O Encontro está acontecendo — inscreva-se na hora, pelo site!');
+      return;
     }
-    const alvo = prorrogado ? PRAZO_PRORROGADO : PRAZO_DIVULGADO;
-    const diff = alvo - agora;
-    if (diff <= 0) {
-      if (el) el.innerHTML = '<p class="hero__countdown-encerrado">Inscrições encerradas</p>';
-      if (compacto) compacto.textContent = 'Inscrições encerradas.';
+    if (fase === 4) {
+      mensagemFinal('<p class="hero__countdown-encerrado">Inscrições encerradas</p>', 'Inscrições encerradas.');
       if (intervalo) clearInterval(intervalo);
       return;
     }
+
+    const alvo = fase === 0 ? PRAZO_DIVULGADO : fase === 1 ? PRAZO_PRORROGADO : INICIO_EVENTO;
+    const diff = alvo - agora;
     const dias  = Math.floor(diff / 86400000);
     const horas = Math.floor((diff % 86400000) / 3600000);
     const min   = Math.floor((diff % 3600000) / 60000);
@@ -141,9 +169,11 @@ function aplicarProrrogacao() {
       campos.seg.textContent   = pad(seg);
     }
     if (compacto) {
-      compacto.textContent = dias > 0
-        ? '⏳ Restam ' + dias + (dias === 1 ? ' dia' : ' dias') + ' para o fim das inscrições'
-        : '⏳ Últimas horas para se inscrever!';
+      compacto.textContent = fase === 2
+        ? (dias > 0 ? (dias === 1 ? '⏳ Falta 1 dia' : '⏳ Faltam ' + dias + ' dias') + ' para o Encontro — inscreva-se pelo site, até na hora!'
+                    : '⏳ Falta pouco para o Encontro! Inscreva-se pelo site, inclusive na hora.')
+        : (dias > 0 ? (dias === 1 ? '⏳ Resta 1 dia' : '⏳ Restam ' + dias + ' dias') + ' para o fim das inscrições'
+                    : '⏳ Últimas horas para se inscrever!');
     }
   }
 

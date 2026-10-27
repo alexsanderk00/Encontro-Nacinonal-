@@ -69,10 +69,11 @@ const EVENTO = {
   emailContato: 'encontrocalcaopreto@gmail.com'
 };
 
-/* Prazo final das inscrições: 28/10/2026 23:59:59 (prorrogado de 24/10) no horário de Brasília.
+/* Prazo final das inscrições: 01/11/2026 23:59:59 no horário de Brasília
+   (divulgado 24/10 → prorrogado 28/10 → aberto até o dia do evento, inscrição na hora pelo site).
    Fonte de verdade do corte — o frontend também fecha nessa data, mas é
    este check que impede inscrições atrasadas mesmo com a página aberta. */
-const PRAZO_INSCRICAO_MS = new Date('2026-10-29T02:59:59Z').getTime();
+const PRAZO_INSCRICAO_MS = new Date('2026-11-02T02:59:59Z').getTime();
 
 /* ── HELPERS ─────────────────────────────────────────────────────── */
 function jsonOut(obj) {
@@ -242,7 +243,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-22-seguranca'
+    versao: '2026-10-27-prazo-01nov'
   });
 }
 
@@ -250,7 +251,7 @@ function validatePayload(data, tabela) {
   const inscrito = data.inscrito;
   const items = data.items;
   if (data.tipo !== 'produto' && Date.now() > PRAZO_INSCRICAO_MS)
-    return { ok: false, message: 'As inscrições foram encerradas em 28 de outubro de 2026.' };
+    return { ok: false, message: 'As inscrições foram encerradas.' };
   if (!inscrito || !items || !items.length || items.length > 20)
     return { ok: false, message: 'Dados incompletos. Preencha tudo e tente novamente.' };
   // Armadilha para robôs: campo invisível no formulário que humano não preenche.

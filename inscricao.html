@@ -597,7 +597,7 @@
     <!-- ── AVISO DE PRAZO ── -->
     <div class="notice">
       <div class="container">
-        <p><span data-prorroga-aviso hidden>🎉 Aproveite, prazo prorrogado! </span>Inscrições abertas até <span data-prorroga="28 de outubro">24 de outubro</span> de 2026.</p>
+        <p><span data-prorroga-aviso hidden>🎉 Aproveite, prazo prorrogado! </span><span data-na-hora-aviso hidden>📍 Ainda dá tempo! </span><span data-na-hora="Inscrições abertas até o dia do evento (31/10) — inclusive na hora, por aqui.">Inscrições abertas até <span data-prorroga="28 de outubro">24 de outubro</span> de 2026.</span></p>
       </div>
     </div>
   </main>
@@ -677,16 +677,24 @@
        Independentemente da flag, as vendas fecham sozinhas no prazo final
        (o backend também valida a data — este é só o aviso visual). */
     const VENDAS_ABERTAS_MANUAL = true;
-    const PRAZO_INSCRICAO = new Date('2026-10-28T23:59:59-03:00').getTime(); // prorrogado de 24/10
-    /* A prorrogação só aparece depois do prazo divulgado (24/10) — ver js/script.js.
-       Pré-visualização: ?previa-prorrogacao no endereço. */
-    const PRAZO_DIVULGADO = new Date('2026-10-24T23:59:59-03:00').getTime();
-    if (Date.now() > PRAZO_DIVULGADO || /[?&]previa-prorrogacao\b/.test(location.search)) {
-      document.querySelectorAll('[data-prorroga]').forEach(function (e) {
-        e.textContent = e.getAttribute('data-prorroga');
+    const PRAZO_INSCRICAO = new Date('2026-11-01T23:59:59-03:00').getTime(); // aberto até o dia do evento
+    /* Fases do prazo (mesma lógica de js/script.js):
+       até 24/10 → texto original; 25–28/10 → "prorrogado"; depois de 28/10 → "na hora".
+       Pré-visualização: ?previa-prorrogacao ou ?previa-na-hora no endereço. */
+    (function faseDoPrazo() {
+      const agora = /[?&]previa-na-hora\b/.test(location.search) ? new Date('2026-10-29T10:00:00-03:00').getTime()
+        : /[?&]previa-prorrogacao\b/.test(location.search) ? new Date('2026-10-25T10:00:00-03:00').getTime()
+        : Date.now();
+      const naHora = agora > new Date('2026-10-28T23:59:59-03:00').getTime();
+      const prorrogado = agora > new Date('2026-10-24T23:59:59-03:00').getTime();
+      document.querySelectorAll('[data-prorroga],[data-na-hora]').forEach(function (e) {
+        const t = naHora && e.hasAttribute('data-na-hora') ? e.getAttribute('data-na-hora')
+          : prorrogado && e.hasAttribute('data-prorroga') ? e.getAttribute('data-prorroga') : null;
+        if (t !== null) e.textContent = t;
       });
-      document.querySelectorAll('[data-prorroga-aviso]').forEach(function (e) { e.hidden = false; });
-    }
+      document.querySelectorAll('[data-prorroga-aviso]').forEach(function (e) { e.hidden = !prorrogado || naHora; });
+      document.querySelectorAll('[data-na-hora-aviso]').forEach(function (e) { e.hidden = !naHora; });
+    })();
     const VENDAS_ABERTAS = VENDAS_ABERTAS_MANUAL && Date.now() <= PRAZO_INSCRICAO;
 
     /* Categorias e preços — devem ser idênticos a PRECOS_INSCRICAO no backend.gs */
