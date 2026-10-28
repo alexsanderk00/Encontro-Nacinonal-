@@ -243,7 +243,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-27-prazo-01nov'
+    versao: '2026-10-28-em-analise'
   });
 }
 
@@ -562,6 +562,8 @@ function reverificarPixPendentes() {
       }
     }
   });
+  // Na mesma rotina: cartões "Em Análise" que o Mercado Pago já decidiu.
+  tryOrLog(function () { processarEmAnalise_(true); }, 'reverificar em análise');
 }
 
 /**
@@ -1193,4 +1195,67 @@ function processarCancelamentos_(aplicar) {
     });
     Logger.log('  ✓ ' + ativas.length + ' linha(s) marcada(s) como "' + STATUS_CANCELADO + '".');
   });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * PAGAMENTOS DE CARTÃO "EM ANÁLISE" (antifraude do Mercado Pago)
+ *
+ * Antes ninguém reconsultava essas linhas: ficavam "Em Análise" para
+ * sempre, mesmo depois de o Mercado Pago aprovar ou recusar.
+ *
+ *   consultarEmAnalise()  → SÓ CONSULTA: mostra no Registro a situação real
+ *                            de cada um no Mercado Pago. Não altera nada.
+ *   atualizarEmAnalise()  → atualiza a planilha e manda o e-mail certo
+ *                            (confirmação se aprovou; "não aprovado" se recusou).
+ *
+ * Depois de publicada, a rotina automática de 10 em 10 minutos
+ * (reverificarPixPendentes) também atualiza essas linhas sozinha.
+ * ═══════════════════════════════════════════════════════════════════ */
+function consultarEmAnalise() { processarEmAnalise_(false); }
+function atualizarEmAnalise() { processarEmAnalise_(true); }
+
+function processarEmAnalise_(aplicar) {
+  const resumo = { aprovado: 0, recusado: 0, aguardando: 0, outro: 0 };
+  if (!aplicar) Logger.log('=== CONSULTA (nada será alterado) ===');
+  getAbasPagamento().forEach(function (aba) {
+    const sheet = aba.sheet;
+    const c = {
+      status: acharColuna(sheet, 'Status Pagamento'), id: acharColuna(sheet, 'ID Pagamento'),
+      nome: acharColuna(sheet, 'Nome'), email: acharColuna(sheet, 'Email'),
+      itens: acharColuna(sheet, 'Itens (detalhe)'), total: acharColuna(sheet, 'Total Bruto (R$)')
+    };
+    if (!c.status || !c.id) return;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][c.status - 1]) !== 'Em Análise') continue;
+      const pid = String(data[i][c.id - 1] || '').trim();
+      const nome = data[i][c.nome - 1], total = data[i][c.total - 1];
+      const rotulo = '[' + (aba.ehProduto ? 'Pedido' : 'Inscrição') + ' linha ' + (i + 1) + '] ' + nome + ' — R$ ' + total + ' — ID ' + pid;
+      const mp = pid ? fetchPaymentStatus(pid) : null;
+      if (!mp || !mp.status) { resumo.outro++; Logger.log('? ' + rotulo + ' → não consegui consultar no Mercado Pago'); continue; }
+
+      const inscrito = { nome: nome, email: data[i][c.email - 1] };
+      let novo = null;
+      if (mp.status === 'approved') { novo = 'Aprovado'; resumo.aprovado++; }
+      else if (mp.status === 'rejected' || mp.status === 'cancelled') { novo = mp.status === 'cancelled' ? 'Cancelado' : 'Recusado'; resumo.recusado++; }
+      else if (mp.status === 'refunded' || mp.status === 'charged_back') { novo = 'Estornado'; resumo.outro++; }
+      else { resumo.aguardando++; }
+
+      Logger.log((novo === 'Aprovado' ? '✓ PAGOU  ' : novo ? '✗ NÃO PAGOU ' : '… AINDA EM ANÁLISE ') + rotulo +
+                 ' → Mercado Pago: ' + mp.status + (mp.status_detail ? ' (' + mp.status_detail + ')' : ''));
+      if (!aplicar || !novo) continue;
+
+      sheet.getRange(i + 1, c.status).setValue(novo);
+      if (novo === 'Aprovado') {
+        const items = parseIngressosStr(data[i][c.itens - 1]);
+        tryOrLog(function () { sendConfirmationEmail(inscrito, items, total, pid, aba.ehProduto); }, 'email análise aprovado');
+      } else if (novo === 'Recusado' || novo === 'Cancelado') {
+        tryOrLog(function () { sendRejectedEmail(inscrito); }, 'email análise recusado');
+      }
+    }
+  });
+  Logger.log('RESUMO — pagaram: ' + resumo.aprovado + ' | não pagaram (recusado/cancelado): ' + resumo.recusado +
+             ' | ainda em análise: ' + resumo.aguardando + ' | outros: ' + resumo.outro +
+             (aplicar ? '' : '   (rode atualizarEmAnalise() para gravar na planilha)'));
 }
