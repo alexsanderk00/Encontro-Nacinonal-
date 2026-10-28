@@ -141,6 +141,9 @@
       text-align: left;
     }
     .size-row .qty-selector { gap: .5rem; }
+    .estoque-badge { display: block; font-size: .75rem; font-weight: 700; color: var(--dourado-escuro); }
+    .size-row .estoque-badge { display: inline; margin-left: .4rem; }
+    .estoque-badge--esgotado { color: var(--erro); }
     .size-row .qty-btn { width: 32px; height: 32px; font-size: 1.2rem; }
     .size-row .qty-value { width: 42px; font-size: 1.05rem; padding: .3rem; }
 
@@ -642,6 +645,52 @@
         return Object.keys(state.quantities).some(function (k) { return state.quantities[k] > 0; });
       }
 
+      /* ── ESTOQUE ──
+         O servidor informa quanto resta de cada item/tamanho (doGet ?action=estoque).
+         Aqui só mostramos "Esgotado"/"Restam N" e limitamos o +; quem barra de verdade
+         é o servidor, que confere o estoque de novo antes de cobrar. */
+      const controles = {};   // rowId → { minus, plus, display, card, badge }
+      const limites = {};     // rowId → quantas unidades restam
+      function limiteDe(rowId) {
+        return limites[rowId] === undefined ? MAX_POR_PRODUTO : Math.min(MAX_POR_PRODUTO, limites[rowId]);
+      }
+      function chaveDoRow(rowId) {
+        const p = rowId.split('|');
+        return PRODUTOS[p[0]].name + (p[1] ? ' ' + p[1] : '');
+      }
+      function aplicarEstoque(estoque) {
+        let mudou = false;
+        Object.keys(controles).forEach(function (rowId) {
+          const resta = estoque[chaveDoRow(rowId)];
+          if (resta === undefined) return;
+          const c = controles[rowId];
+          limites[rowId] = resta;
+          if (!c.badge) {
+            c.badge = el('span', 'estoque-badge');
+            const linha = c.display.closest('.size-row');
+            const host = linha ? linha.querySelector('.size-row__label') : c.card.querySelector('[data-price]');
+            host.appendChild(c.badge);
+          }
+          c.badge.textContent = resta <= 0 ? 'Esgotado' : (resta <= 5 ? 'Restam ' + resta : '');
+          c.badge.classList.toggle('estoque-badge--esgotado', resta <= 0);
+          if (state.quantities[rowId] > Math.max(0, resta)) {
+            state.quantities[rowId] = Math.max(0, resta);
+            c.display.value = state.quantities[rowId];
+            mudou = true;
+          }
+          c.minus.disabled = state.quantities[rowId] === 0;
+          c.plus.disabled = state.quantities[rowId] >= limiteDe(rowId);
+          atualizarCardAtivo(c.card);
+        });
+        if (mudou) updateOrder();
+      }
+      function carregarEstoque() {
+        fetch(CONFIG.BACKEND_URL + '?action=estoque')
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (d && d.estoque) aplicarEstoque(d.estoque); })
+          .catch(function () { /* sem estoque na tela: o servidor ainda barra na compra */ });
+      }
+
       /* Cria um seletor de quantidade (− valor +) já vinculado a um rowId. */
       function buildQtySelector(rowId, card, disponivel) {
         const wrap = el('div', 'qty-selector');
@@ -661,11 +710,13 @@
       /* Liga os botões de + e − de um seletor ao state.quantities[rowId]. */
       function bindQty(minus, plus, display, rowId, card, disponivel) {
         if (!disponivel) return;
+        controles[rowId] = { minus: minus, plus: plus, display: display, card: card };
         plus.addEventListener('click', function () {
-          if (state.quantities[rowId] >= MAX_POR_PRODUTO) return;
+          if (state.quantities[rowId] >= limiteDe(rowId)) return;
           state.quantities[rowId]++;
           display.value = state.quantities[rowId];
           minus.disabled = false;
+          plus.disabled = state.quantities[rowId] >= limiteDe(rowId);
           atualizarCardAtivo(card);
           updateOrder();
         });
@@ -674,6 +725,7 @@
           state.quantities[rowId]--;
           display.value = state.quantities[rowId];
           minus.disabled = state.quantities[rowId] === 0;
+          plus.disabled = state.quantities[rowId] >= limiteDe(rowId);
           atualizarCardAtivo(card);
           updateOrder();
         });
@@ -719,6 +771,7 @@
           bindQty(minus, plus, display, key, card, disponivel);
         }
       });
+      carregarEstoque();
 
       function collectItems() {
         const items = [];
@@ -932,6 +985,16 @@
           return;
         }
         if (result && result.status === 'in_process') { showReviewModal(); return; }
+        if (result && result.status === 'esgotado') {
+          if (result.estoque) aplicarEstoque(result.estoque);
+          showError(paymentError, result.message);
+          return;
+        }
+        // Recusa do próprio servidor (sem motivo do Mercado Pago): mostra a mensagem dele.
+        if (result && result.status === 'rejected' && !result.status_detail && result.message) {
+          showError(paymentError, result.message);
+          return;
+        }
         if (result && (result.status === 'rejected' || result.status === 'cancelled')) {
           showRejectedModal(result.status_detail || '');
           return;

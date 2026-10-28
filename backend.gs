@@ -48,6 +48,24 @@ const PRECOS_PRODUTOS = {
   'Boné': 35
 };
 
+/* ESTOQUE — fonte de verdade das vendas da loja. Atualize aqui se o estoque
+   mudar (ex.: chegou mais camiseta) e publique uma nova versão. A loja recusa
+   a venda quando o vendido + reservado passa desses números.
+   Chave = "Produto" ou "Produto TAMANHO". */
+const ESTOQUE_INICIAL = {
+  'Camiseta Masculina P': 20, 'Camiseta Masculina M': 45,
+  'Camiseta Masculina G': 55, 'Camiseta Masculina GG': 45,
+  'Camiseta Feminina P': 10,  'Camiseta Feminina M': 20,
+  'Camiseta Feminina G': 5,
+  'Velame': 100, 'Garrafa': 236, 'Boné': 100, 'Moeda': 120
+};
+const TAMANHOS_PRODUTOS = {
+  'Camiseta Masculina': ['P', 'M', 'G', 'GG'],
+  'Camiseta Feminina':  ['P', 'M', 'G']
+};
+/* Status que ocupam estoque: pago, ou pagamento ainda pode se confirmar. */
+const STATUS_QUE_RESERVAM = ['Aprovado', 'Confirmado', 'Aguardando Pix', 'Em Análise'];
+
 /* Cabeçalhos das duas abas — usados por saveToSheet e por criarAbas(). */
 const HEADERS_INSCRICOES = [
   'Data', 'Nome', 'Email', 'CPF', 'Telefone', 'Cidade', 'Ano Formação EsEFEx',
@@ -125,6 +143,60 @@ function validarInscrito(ins, ehProduto) {
   if (!ehProduto && String(ins.participantes || '').length > 3000) return 'Lista de participantes muito longa.';
   if (ehProduto && String(ins.observacoes || '').length > 500) return 'Observações muito longas.';
   return '';
+}
+
+/* "Camiseta Masculina [G] ×2 (R$ 130,00), Velame ×1 (...)" → {chave: qtd} */
+function parseItensDetalhe(str) {
+  const r = {};
+  String(str || '').split(', ').forEach(function (parte) {
+    const m = parte.match(/^(.+?)(?:\s*\[([^\]]+)\])?\s*×(\d+)/);
+    if (!m) return;
+    const chave = m[2] ? m[1].trim() + ' ' + m[2].trim() : m[1].trim();
+    r[chave] = (r[chave] || 0) + parseInt(m[3], 10);
+  });
+  return r;
+}
+
+function chaveEstoque(item) {
+  return item.tamanho ? item.tipo + ' ' + item.tamanho : item.tipo;
+}
+
+/* Quanto resta de cada item: estoque − (vendido + reservado) na aba Pedidos. */
+function estoqueRestante() {
+  const usados = {};
+  const aba = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ABA_PEDIDOS);
+  if (aba && aba.getLastRow() > 1) {
+    const dados = aba.getDataRange().getValues();
+    const cDet = dados[0].indexOf('Itens (detalhe)'), cSt = dados[0].indexOf('Status Pagamento');
+    if (cDet >= 0 && cSt >= 0) {
+      for (let i = 1; i < dados.length; i++) {
+        const st = String(dados[i][cSt] || '');
+        if (!STATUS_QUE_RESERVAM.some(function (x) { return st.indexOf(x) >= 0; })) continue;
+        const itens = parseItensDetalhe(dados[i][cDet]);
+        Object.keys(itens).forEach(function (k) { usados[k] = (usados[k] || 0) + itens[k]; });
+      }
+    }
+  }
+  const restante = {};
+  Object.keys(ESTOQUE_INICIAL).forEach(function (k) {
+    restante[k] = Math.max(0, ESTOQUE_INICIAL[k] - (usados[k] || 0));
+  });
+  return restante;
+}
+
+/* '' se tem estoque para o pedido; senão a mensagem para o comprador. */
+function verificarEstoque(items) {
+  const restante = estoqueRestante();
+  const pedido = {};
+  items.forEach(function (it) { const k = chaveEstoque(it); pedido[k] = (pedido[k] || 0) + parseInt(it.quantidade, 10); });
+  const faltas = [];
+  Object.keys(pedido).forEach(function (k) {
+    if (restante[k] === undefined) return;            // item sem controle de estoque
+    if (pedido[k] > restante[k]) faltas.push(restante[k] === 0 ? k + ' (esgotado)' : k + ' (restam ' + restante[k] + ')');
+  });
+  return faltas.length
+    ? 'Estoque insuficiente: ' + faltas.join(', ') + '. Ajuste o pedido e tente de novo — nada foi cobrado.'
+    : '';
 }
 
 function maskCpf(cpf) {
@@ -221,8 +293,26 @@ function doPost(e) {
       return handleGratuito(v.inscrito, v.items, ehProduto, tabela);
     }
 
-    const paymentResult = processPayment(v.paymentData, v.inscrito, v.total, ehProduto);
-    return routePaymentResult(paymentResult, v.inscrito, v.items, v.total, ehProduto);
+    if (!ehProduto) {
+      const paymentResult = processPayment(v.paymentData, v.inscrito, v.total, ehProduto);
+      return routePaymentResult(paymentResult, v.inscrito, v.items, v.total, ehProduto);
+    }
+
+    // LOJA: uma venda por vez (trava), conferindo o estoque ANTES de cobrar —
+    // evita duas pessoas levarem a última unidade ao mesmo tempo.
+    const trava = LockService.getScriptLock();
+    if (!trava.tryLock(25000))
+      return jsonOut({ status: 'rejected', message: 'Loja muito movimentada agora. Aguarde alguns segundos e tente de novo — nada foi cobrado.' });
+    try {
+      const faltou = verificarEstoque(v.items);
+      if (faltou) return jsonOut({ status: 'esgotado', message: faltou, estoque: estoqueRestante() });
+      const paymentResult = processPayment(v.paymentData, v.inscrito, v.total, ehProduto);
+      const resposta = routePaymentResult(paymentResult, v.inscrito, v.items, v.total, ehProduto);
+      CacheService.getScriptCache().remove('estoque_publico');   // a loja vê o estoque novo na hora
+      return resposta;
+    } finally {
+      trava.releaseLock();
+    }
 
   } catch (err) {
     Logger.log('Erro doPost: ' + err);
@@ -237,13 +327,21 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'check_payment' && e.parameter.id) {
     return checkPixPayment(e.parameter.id);
   }
+  if (e && e.parameter && e.parameter.action === 'estoque') {
+    const cache = CacheService.getScriptCache();
+    const salvo = cache.get('estoque_publico');
+    if (salvo) return jsonOut(JSON.parse(salvo));
+    const out = { status: 'ok', estoque: estoqueRestante() };
+    cache.put('estoque_publico', JSON.stringify(out), 30);
+    return jsonOut(out);
+  }
   // evento_data permite conferir de fora qual versão do script está publicada.
   return jsonOut({
     status: 'ok',
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-28-email-recusado'
+    versao: '2026-10-28-estoque'
   });
 }
 
@@ -263,6 +361,13 @@ function validatePayload(data, tabela) {
     return { ok: false, message: 'Dados de pagamento ausentes.' };
   const erroDados = validarInscrito(inscrito, data.tipo === 'produto');
   if (erroDados) return { ok: false, message: erroDados };
+  if (data.tipo === 'produto') {
+    for (const it of items) {
+      const tams = TAMANHOS_PRODUTOS[it.tipo];
+      if (tams ? tams.indexOf(it.tamanho) < 0 : it.tamanho)
+        return { ok: false, message: 'Tamanho inválido para ' + it.tipo + '.' };
+    }
+  }
   if (!checkRateLimit(inscrito.cpf) ||
       !dentroDoLimite('rl_em_' + String(inscrito.email).trim().toLowerCase(), 5, 60))
     return { ok: false, message: 'Muitas tentativas. Aguarde um minuto e tente novamente.' };
@@ -792,14 +897,7 @@ function sendPixExpiredEmail(inscrito) {
 function gerarResumo() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
 
-  // Estoque inicial de referência (atualizar aqui se o estoque mudar).
-  const ESTOQUE_INICIAL = {
-    'Camiseta Masculina P': 20, 'Camiseta Masculina M': 45,
-    'Camiseta Masculina G': 55, 'Camiseta Masculina GG': 45,
-    'Camiseta Feminina P': 10,  'Camiseta Feminina M': 20,
-    'Camiseta Feminina G': 5,
-    'Velame': 100, 'Garrafa': 236, 'Boné': 100, 'Moeda': 120
-  };
+  // Estoque: ver ESTOQUE_INICIAL (topo do arquivo).
 
   // Extrai pares {chave → quantidade} de uma string "Itens (detalhe)".
   // Formato: "Produto [Tam] ×N (R$ X,XX), Produto ×N (R$ X,XX)"
