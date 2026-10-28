@@ -243,7 +243,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-28-em-analise'
+    versao: '2026-10-28-email-recusado'
   });
 }
 
@@ -339,7 +339,7 @@ function handleInProcess(result, inscrito, items, total, ehProduto) {
 function handleRejected(result, inscrito, items, total, ehProduto) {
   const statusPlanilha = result.status === 'cancelled' ? 'Cancelado' : 'Recusado';
   tryOrLog(function () { saveToSheet(inscrito, items, total, result, ehProduto, statusPlanilha); }, 'saveToSheet recusado');
-  tryOrLog(function () { sendRejectedEmail(inscrito); }, 'email recusado');
+  tryOrLog(function () { sendRejectedEmail(inscrito, ehProduto); }, 'email recusado');
   return jsonOut({
     status: result.status || 'rejected',
     status_detail: result.status_detail || '',
@@ -739,17 +739,29 @@ function sendReviewEmail(inscrito, total, paymentId) {
   });
 }
 
-function sendRejectedEmail(inscrito) {
+function sendRejectedEmail(inscrito, ehProduto) {
   if (!inscrito || !inscrito.email) return;
+  const pagina = ehProduto ? 'loja.html' : 'inscricao.html';
+  const link = 'https://www.encontrocalcaopreto.com.br/' + pagina + '?utm_source=email-recusado';
+  const oQue = ehProduto ? 'seu pedido na Loja Oficial' : 'sua inscrição';
   let corpo = '<p>Olá, <strong>' + escapeHtml(String(inscrito.nome || '').split(' ')[0]) + '</strong>!</p>';
-  corpo += '<p>Infelizmente o seu pagamento <strong>não foi aprovado</strong> pelo Mercado Pago. ' +
-           'Nenhum valor foi cobrado.</p>';
-  corpo += '<p>Você pode tentar novamente com outro cartão ou usar o <strong>Pix</strong> ' +
-           '(aprovação imediata) na página de inscrição.</p>';
+  corpo += '<p>O pagamento de ' + oQue + ' no <strong>' + escapeHtml(EVENTO.nome) + '</strong> ' +
+           '<strong>não foi aprovado</strong> pelo Mercado Pago, por isso ' +
+           (ehProduto ? 'o pedido não foi concluído' : 'a inscrição não foi concluída') + '. ' +
+           '<strong>Nenhum valor foi cobrado.</strong></p>';
+  corpo += '<p>Ainda dá tempo! Você pode tentar de novo agora mesmo — de preferência com ' +
+           '<strong>Pix</strong>, que é aprovado na hora, ou com outro cartão:</p>';
+  corpo += '<p style="text-align:center;margin:24px 0;">' +
+           '<a href="' + link + '" style="background:#e1ad01;color:#111111;text-decoration:none;' +
+           'font-weight:bold;padding:14px 28px;border-radius:999px;display:inline-block;">' +
+           (ehProduto ? 'Voltar à Loja Oficial' : 'Fazer minha inscrição') + '</a></p>';
+  corpo += '<p style="font-size:13px;color:#666666;">Se o botão não funcionar, copie este endereço no navegador: ' +
+           link.split('?')[0] + '</p>';
+  corpo += '<p>Dúvidas? Responda este e-mail ou escreva para ' + escapeHtml(EVENTO.emailContato) + '.</p>';
   MailApp.sendEmail({
     to: inscrito.email,
-    subject: 'Pagamento não aprovado — ' + EVENTO.nome,
-    htmlBody: emailShell('Pagamento Não Aprovado', corpo),
+    subject: (ehProduto ? 'Pedido não concluído' : 'Inscrição não concluída') + ' — pagamento não aprovado — ' + EVENTO.nome,
+    htmlBody: emailShell('Pagamento não aprovado', corpo),
     name: EVENTO.nome,
     replyTo: EVENTO.emailContato
   });
@@ -1251,11 +1263,66 @@ function processarEmAnalise_(aplicar) {
         const items = parseIngressosStr(data[i][c.itens - 1]);
         tryOrLog(function () { sendConfirmationEmail(inscrito, items, total, pid, aba.ehProduto); }, 'email análise aprovado');
       } else if (novo === 'Recusado' || novo === 'Cancelado') {
-        tryOrLog(function () { sendRejectedEmail(inscrito); }, 'email análise recusado');
+        tryOrLog(function () { sendRejectedEmail(inscrito, aba.ehProduto); }, 'email análise recusado');
       }
     }
   });
   Logger.log('RESUMO — pagaram: ' + resumo.aprovado + ' | não pagaram (recusado/cancelado): ' + resumo.recusado +
              ' | ainda em análise: ' + resumo.aguardando + ' | outros: ' + resumo.outro +
              (aplicar ? '' : '   (rode atualizarEmAnalise() para gravar na planilha)'));
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * CONVITE PARA TENTAR DE NOVO (quem teve pagamento recusado)
+ *
+ *   simularConviteRecusados() → só lista no Registro quem receberia
+ *   enviarConviteRecusados()  → manda o e-mail "não foi concluída — tente de
+ *                               novo" (com botão para a página certa)
+ *
+ * Só envia para quem tem linha Recusado/Cancelado E NÃO tem nenhuma linha
+ * Aprovado/Confirmado na mesma aba (ou seja: ainda não conseguiu pagar).
+ * 1 e-mail por pessoa; marca a coluna "Convite reenvio" para não repetir.
+ * ═══════════════════════════════════════════════════════════════════ */
+const COL_CONVITE = 'Convite reenvio';
+
+function simularConviteRecusados() { conviteRecusados_(false); }
+function enviarConviteRecusados() { conviteRecusados_(true); }
+
+function conviteRecusados_(enviar) {
+  Logger.log(enviar ? '=== ENVIANDO CONVITES ===' : '=== SIMULAÇÃO (nada será enviado) ===');
+  let total = 0;
+  getAbasPagamento().forEach(function (aba) {
+    const sheet = aba.sheet;
+    const cSt = acharColuna(sheet, 'Status Pagamento'), cEm = acharColuna(sheet, 'Email'), cNo = acharColuna(sheet, 'Nome');
+    if (!cSt || !cEm) return;
+    let cCv = acharColuna(sheet, COL_CONVITE);
+    if (!cCv && enviar) { cCv = sheet.getLastColumn() + 1; sheet.getRange(1, cCv).setValue(COL_CONVITE).setFontWeight('bold'); }
+    const data = sheet.getDataRange().getValues();
+    const pagou = {}, recusados = {};
+    for (let i = 1; i < data.length; i++) {
+      const st = String(data[i][cSt - 1] || ''), em = String(data[i][cEm - 1] || '').trim().toLowerCase();
+      if (!em) continue;
+      if (st.indexOf('Aprovado') >= 0 || st.indexOf('Confirmado') >= 0) pagou[em] = true;
+      if (st === 'Recusado' || st === 'Cancelado') {
+        const r = recusados[em] || (recusados[em] = { nome: data[i][cNo - 1], linhas: [], jaConvidado: false });
+        r.linhas.push(i + 1);
+        if (cCv && String(data[i][cCv - 1] || '').indexOf('Sim') === 0) r.jaConvidado = true;
+      }
+    }
+    Object.keys(recusados).forEach(function (em) {
+      const r = recusados[em];
+      if (pagou[em]) { Logger.log('  • ' + r.nome + ' <' + em + '> já pagou depois — não envia'); return; }
+      if (r.jaConvidado) { Logger.log('  • ' + r.nome + ' <' + em + '> já recebeu o convite — não repete'); return; }
+      total++;
+      Logger.log('  → ' + (enviar ? 'ENVIADO: ' : 'receberia: ') + r.nome + ' <' + em + '> [' + (aba.ehProduto ? 'Loja' : 'Inscrição') + ']');
+      if (!enviar) return;
+      try {
+        sendRejectedEmail({ nome: r.nome, email: em }, aba.ehProduto);
+        const carimbo = 'Sim — ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM HH:mm');
+        r.linhas.forEach(function (n) { sheet.getRange(n, cCv).setValue(carimbo); });
+      } catch (e) { Logger.log('    FALHA: ' + e); }
+    });
+  });
+  Logger.log((enviar ? 'Convites enviados: ' : 'Receberiam o convite: ') + total);
 }
