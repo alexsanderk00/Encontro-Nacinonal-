@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-extra2'
+    versao: '2026-10-30-presenca'
   });
 }
 
@@ -1548,7 +1548,7 @@ function atualizarEntregas() {
     const v = aba.getDataRange().getValues(), h = v[0];
     const c = { nome: h.indexOf('Nome'), email: h.indexOf('Email'), cpf: h.indexOf('CPF'),
                 det: h.indexOf('Itens (detalhe)'), st: h.indexOf('Status Pagamento'), part: h.indexOf('Participantes'),
-                data: h.indexOf('Data') };
+                data: h.indexOf('Data'), ano: h.indexOf('Ano Formação EsEFEx'), cat: h.indexOf('Categoria EsEFEx') };
     for (let i = 1; i < v.length; i++) {
       // Só pagamento aprovado: "Aprovado", "Confirmado (Gratuito)". Fica de fora: Aguardando Pix,
       // Em Análise, Recusado, Cancelado, Estornado (e qualquer "Não aprovado" escrito à mão).
@@ -1561,6 +1561,14 @@ function atualizarEntregas() {
     const p = pessoa(r, c), itens = parseItensDetalhe(r[c.det]);
     Object.keys(itens).forEach(function (k) { p.insc[k] = (p.insc[k] || 0) + itens[k]; });
     if (c.part >= 0 && r[c.part]) p.part.push(String(r[c.part]));
+    p.temInsc = true;                                       // entra na aba "Presença por turma"
+    if (c.ano >= 0) {
+      const a = r[c.ano];
+      const ano = a instanceof Date ? String(a.getFullYear()) : String(a === null || a === undefined ? '' : a).trim();
+      const m = ano.match(/\b(19|20)\d{2}\b/);                 // "turma 2010" → "2010"
+      if (ano) p.ano = m ? m[0] : ano.slice(0, 10);
+    }
+    if (c.cat >= 0 && String(r[c.cat]).trim()) p.cat = String(r[c.cat]).trim();
   });
   ler(ABA_PEDIDOS, function (r, c) {
     const p = pessoa(r, c), itens = parseItensDetalhe(r[c.det]);
@@ -1690,6 +1698,7 @@ function atualizarEntregas() {
   aba.setConditionalFormatRules([]);                            // remove regras antigas
   if (total > 0) pintarLinhasEntregas_(aba, 2, total);
   instalarTriggerCliqueEntregas_();
+  try { atualizarPresenca_(ss, pessoas); } catch (e) { Logger.log('Presença por turma: ' + e); }
   Logger.log('Entregas: ' + Object.keys(pessoas).length + ' pessoa(s) com inscrição/pedido pago' +
              (novas.length ? ' (' + novas.length + ' nova(s))' : '') + '.');
 }
@@ -1741,7 +1750,117 @@ function aoEditarEntregas(e) {
     if (aba.getRange(1, 3 + ENTREGA_PRODUTOS.length + 1 + ENTREGA_CONTROLE.length + 1).getValue() !== 'chave') return;
     try { atualizarExtraLinhas_(aba, ini, fim - ini + 1); } catch (err) { Logger.log('extra: ' + err); }
     pintarLinhasEntregas_(aba, ini, fim - ini + 1);
+    // Mexeu em "Inscrição entregue" → atualiza a aba "Presença por turma" (fica verde quem chegou).
+    const colInsc = 3 + ENTREGA_PRODUTOS.length + 1 + 1;
+    const c1 = e.range.getColumn(), c2 = c1 + e.range.getNumColumns() - 1;
+    if (c1 <= colInsc && c2 >= colInsc) {
+      const trava = LockService.getScriptLock();
+      if (trava.tryLock(15000)) {
+        try { pintarPresenca_(aba.getParent()); } catch (err) { Logger.log('presença: ' + err); }
+        finally { trava.releaseLock(); }
+      }
+    }
   } catch (err) { Logger.log('aoEditarEntregas: ' + err); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * ABA "PRESENÇA POR TURMA" — quem chegou, por ano de formação na EsEFEx
+ *
+ * Uma linha por inscrito (inscrição paga), agrupada pelo ano de formação, com
+ * a categoria (Monitor, Instrutor, Medicina Esportiva…) e os participantes.
+ * Fica VERDE quando o balcão marca "Inscrição entregue" na aba Entregas, e o
+ * título de cada turma mostra quantos já chegaram.
+ * A aba é toda reescrita pelo script — não escreva nela (use a aba Entregas).
+ * ═══════════════════════════════════════════════════════════════════ */
+const ABA_PRESENCA = 'Presença por turma';
+const PRESENCA_CAB = ['Ano de formação', 'Nome', 'Categoria EsEFEx', 'Participantes', 'Chegou?', 'chave'];
+
+function atualizarPresenca_(ss, pessoas) {
+  let aba = ss.getSheetByName(ABA_PRESENCA);
+  if (!aba) aba = ss.insertSheet(ABA_PRESENCA);
+  // Segurança: só reescreve se a aba for a do script (vazia ou com o nosso cabeçalho).
+  const a1 = aba.getLastRow() ? String(aba.getRange(1, 1).getValue()) : '';
+  if (a1 && a1 !== PRESENCA_CAB[0]) {
+    Logger.log('Presença: já existe uma aba "' + ABA_PRESENCA + '" feita à mão — não mexi. Renomeie-a.');
+    return;
+  }
+  const lista = Object.keys(pessoas).map(function (k) { return pessoas[k]; })
+    .filter(function (p) { return p.temInsc; });
+  lista.sort(function (a, b) {
+    const A = a.ano || '', B = b.ano || '';
+    if (A !== B) {
+      if (!A) return 1;                          // sem ano → no fim
+      if (!B) return -1;
+      return A.localeCompare(B, 'pt', { numeric: true });
+    }
+    return a.nome.localeCompare(b.nome, 'pt');
+  });
+  const linhas = [];
+  let anoAtual = null;
+  lista.forEach(function (p) {
+    const ano = p.ano || '';
+    if (ano !== anoAtual) { anoAtual = ano; linhas.push(['', '', '', '', '', 'turma:' + ano]); }
+    linhas.push([celula(ano || '—', 10), celula(p.nome, 120), celula(p.cat || '', 60),
+                 celula(p.part.join('\n'), 3000), '', p.chave]);
+  });
+
+  aba.clear();
+  aba.getRange(1, 1, 1, PRESENCA_CAB.length).setValues([PRESENCA_CAB])
+    .setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01');
+  aba.setFrozenRows(1);
+  aba.setColumnWidth(1, 110); aba.setColumnWidth(2, 240); aba.setColumnWidth(3, 160);
+  aba.setColumnWidth(4, 300); aba.setColumnWidth(5, 90);
+  if (linhas.length) {
+    aba.getRange(2, 1, linhas.length, PRESENCA_CAB.length).setValues(linhas);
+    aba.getRange(2, 1, linhas.length, 5).setVerticalAlignment('top');
+    aba.getRange(2, 4, linhas.length, 1).setWrap(true);
+    aba.getRange(2, 5, linhas.length, 1).setHorizontalAlignment('center');
+  }
+  aba.hideColumns(PRESENCA_CAB.length);
+  pintarPresenca_(ss);
+}
+
+/* Pinta de verde quem já pegou a inscrição (caixinha "Inscrição entregue" na aba
+   Entregas) e escreve, no título de cada turma, quantos já chegaram. */
+function pintarPresenca_(ss) {
+  const aba = ss.getSheetByName(ABA_PRESENCA), ent = ss.getSheetByName(ABA_ENTREGAS);
+  if (!aba || !ent || aba.getLastRow() < 2) return;
+  const nDados = 3 + ENTREGA_PRODUTOS.length + 1, colChave = nDados + ENTREGA_CONTROLE.length + 1;
+  const chegou = {};
+  if (ent.getLastRow() > 1 && ent.getRange(1, colChave).getValue() === 'chave') {
+    ent.getRange(2, 1, ent.getLastRow() - 1, colChave).getValues().forEach(function (r) {
+      if (r[colChave - 1] && r[nDados] === true) chegou[r[colChave - 1]] = true;
+    });
+  }
+  const n = aba.getLastRow() - 1;
+  const v = aba.getRange(2, 1, n, PRESENCA_CAB.length).getValues();
+  const tot = {}, che = {};
+  let turma = null;
+  v.forEach(function (r) {
+    const k = String(r[5] || '');
+    if (k.indexOf('turma:') === 0) { turma = k; tot[k] = 0; che[k] = 0; }
+    else if (k && turma) { tot[turma]++; if (chegou[k]) che[turma]++; }
+  });
+  const colA = [], colE = [], cores = [], fontes = [];
+  v.forEach(function (r) {
+    const k = String(r[5] || '');
+    if (k.indexOf('turma:') === 0) {
+      const ano = k.slice(6);
+      colA.push([(ano ? 'Turma de ' + ano : 'Ano não informado') + ' — ' + che[k] + ' de ' + tot[k] + ' chegaram']);
+      colE.push(['']);
+      cores.push(['#e1ad01', '#e1ad01', '#e1ad01', '#e1ad01', '#e1ad01']);
+      fontes.push(['bold', 'bold', 'bold', 'bold', 'bold']);
+    } else {
+      colA.push([r[0]]);
+      colE.push([k && chegou[k] ? '✓ chegou' : '']);
+      const c = k && chegou[k] ? COR_VERDE : null;
+      cores.push([c, c, c, c, c]);
+      fontes.push(['normal', c ? 'bold' : 'normal', 'normal', 'normal', 'bold']);
+    }
+  });
+  aba.getRange(2, 1, n, 1).setValues(colA);
+  aba.getRange(2, 5, n, 1).setValues(colE);
+  aba.getRange(2, 1, n, 5).setBackgrounds(cores).setFontWeights(fontes);
 }
 
 /* ── COMPROU DEPOIS DA ENTREGA ─────────────────────────────────────────
