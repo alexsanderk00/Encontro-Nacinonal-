@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-entregas-v4'
+    versao: '2026-10-30-entregas-v5'
   });
 }
 
@@ -1644,7 +1644,7 @@ function atualizarEntregas() {
       'IF(OR(' + I + '=TRUE,' + P + '=TRUE),"amarelo","")))');
   }
   aba.hideColumns(colChave, 2);
-  aplicarCoresEntregas(aba, colChave, colSit);
+  aplicarCoresEntregas_(aba, colChave, colSit);
   Logger.log('Entregas: ' + Object.keys(pessoas).length + ' pessoa(s) com inscrição/pedido pago' +
              (novas.length ? ' (' + novas.length + ' nova(s))' : '') + '.');
 }
@@ -1652,7 +1652,10 @@ function atualizarEntregas() {
 /* Cores (formatação condicional — muda na hora do clique):
    VERDE = recebeu tudo o que tem · AMARELO = falta algo (ou "⚠ comprou mais") · BRANCO = nada entregue.
    A regra só compara a coluna oculta "situação" com um texto — não depende de vírgula/ponto e vírgula. */
-function aplicarCoresEntregas(aba, colChave, colSit) {
+/* Peça interna (o "_" no fim esconde do menu Executar). Para atualizar a aba
+   e as cores, rode atualizarEntregas(). */
+function aplicarCoresEntregas_(aba, colChave, colSit) {
+  if (!aba) { atualizarEntregas(); return; }   // rodada sozinha por engano → faz o certo
   let L = '', n = colSit;
   while (n > 0) { const m = (n - 1) % 26; L = String.fromCharCode(65 + m) + L; n = Math.floor((n - 1) / 26); }
   const faixa = aba.getRange(2, 1, Math.max(1, aba.getMaxRows() - 1), colChave - 1);
