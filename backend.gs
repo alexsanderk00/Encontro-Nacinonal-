@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-entregas-v6'
+    versao: '2026-10-30-nomes'
   });
 }
 
@@ -752,7 +752,7 @@ function saveToSheet(inscrito, items, total, paymentResult, ehProduto, statusOve
 
   // Tudo que vem do formulário passa por celula() (anti-fórmula + tamanho).
   const comuns = [
-    new Date(), celula(inscrito.nome, 120), celula(inscrito.email, 120),
+    new Date(), celula(nomeFormal(inscrito.nome), 120), celula(inscrito.email, 120),
     celula(inscrito.cpf, 20), celula(inscrito.telefone, 20)
   ];
   const finais = [
@@ -766,7 +766,7 @@ function saveToSheet(inscrito, items, total, paymentResult, ehProduto, statusOve
   const meio = ehProduto
     ? [celula(inscrito.observacoes, 500)]
     : [celula(inscrito.cidade, 80), celula(inscrito.anoFormacao, 10),
-       celula(inscrito.categoria, 60), celula(inscrito.participantes, 3000)];
+       celula(inscrito.categoria, 60), celula(participantesFormal(inscrito.participantes), 3000)];
 
   sheet.appendRow(comuns.concat(meio).concat(finais));
 }
@@ -1540,8 +1540,10 @@ function atualizarEntregas() {
     const c = { nome: h.indexOf('Nome'), email: h.indexOf('Email'), cpf: h.indexOf('CPF'),
                 det: h.indexOf('Itens (detalhe)'), st: h.indexOf('Status Pagamento'), part: h.indexOf('Participantes') };
     for (let i = 1; i < v.length; i++) {
-      const st = String(v[i][c.st] || '');
-      if (st.indexOf('Aprovado') < 0 && st.indexOf('Confirmado') < 0) continue;
+      // Só pagamento aprovado: "Aprovado", "Confirmado (Gratuito)". Fica de fora: Aguardando Pix,
+      // Em Análise, Recusado, Cancelado, Estornado (e qualquer "Não aprovado" escrito à mão).
+      const st = String(v[i][c.st] || '').trim();
+      if (!/^(Aprovado|Confirmado)\b/i.test(st)) continue;
       fn(v[i], c);
     }
   }
@@ -1698,4 +1700,101 @@ function instalarTriggerCliqueEntregas_() {
     const existe = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'aoEditarEntregas'; });
     if (!existe) ScriptApp.newTrigger('aoEditarEntregas').forSpreadsheet(SHEET_ID).onEdit().create();
   } catch (err) { Logger.log('instalarTriggerCliqueEntregas_: ' + err); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * NOMES NO FORMATO FORMAL DO PORTUGUÊS
+ *   "ALEXANDER DA SILVA LIMA" → "Alexander da Silva Lima"
+ *   "alex sander koeche"      → "Alex Sander Koeche"
+ * Partículas (da, das, de, do, dos, e) em minúscula — exceto na 1ª palavra; d'Ávila;
+ * algarismos romanos (II, III, IV…) em maiúscula; nomes compostos com hífen
+ * ("ana-maria" → "Ana-Maria"); "Jr"/"Filho"/"Neto" normais.
+ * Novos cadastros já são gravados assim (saveToSheet). Para corrigir o que já
+ * está na planilha:
+ *   simularPadronizarNomes() → só mostra no Registro o que mudaria
+ *   padronizarNomes()        → corrige Inscrições, Pedidos e Entregas
+ * ═══════════════════════════════════════════════════════════════════ */
+const PARTICULAS_NOME = ['da', 'das', 'de', 'do', 'dos', 'e'];
+
+function nomeFormal(nome) {
+  try {
+    const limpo = String(nome === undefined || nome === null ? '' : nome).replace(/\s+/g, ' ').trim();
+    if (!limpo) return limpo;
+    const maiusc = function (t) { return t.charAt(0).toLocaleUpperCase('pt-BR') + t.slice(1); };
+    return limpo.split(' ').map(function (palavra, i) {
+      return palavra.split('-').map(function (p) {
+        const min = p.toLocaleLowerCase('pt-BR'), mai = p.toLocaleUpperCase('pt-BR');
+        if (i > 0 && PARTICULAS_NOME.indexOf(min) >= 0) return min;                       // da, dos, e…
+        if (i > 0 && /^(ii|iii|iv|vi|vii|viii|ix)$/.test(min)) return mai;                  // Henrique II
+        // Caixa mista que não é só "Inicial maiúscula" (McDonald, O'Connor, Sant'Anna) → já foi
+        // escrita com cuidado: deixa como está.
+        if (p !== min && p !== mai && p.slice(1) !== p.slice(1).toLocaleLowerCase('pt-BR')) return p;
+        // Apóstrofo reto ou curvo: d'ávila → d'Ávila, o'connor → O'Connor, sant'anna → Sant'Anna
+        const ap = min.match(/^(.+?)(['’])(.+)$/);
+        if (ap) {
+          const pre = (ap[1] === 'd' && i > 0) ? 'd' : maiusc(ap[1]);
+          return pre + ap[2] + maiusc(ap[3]);
+        }
+        return maiusc(min);
+      }).join('-');
+    }).join(' ');
+  } catch (e) {
+    return nome;   // nunca quebra o cadastro por causa da formatação
+  }
+}
+
+/* Participantes: "1. JOÃO DA SILVA (adulto)\n2. ana (crianca_ate_8)" → só o nome muda. */
+function participantesFormal(txt) {
+  try {
+    return String(txt === undefined || txt === null ? '' : txt).split('\n').map(function (linha) {
+      const m = linha.match(/^(\s*\d+\.\s*)(.*?)(\s*\([^()]*\)\s*)?$/);
+      if (!m) return linha;
+      return m[1] + nomeFormal(m[2]) + (m[3] || '');
+    }).join('\n');
+  } catch (e) {
+    return txt;
+  }
+}
+
+function simularPadronizarNomes() { padronizarNomes_(false); }
+function padronizarNomes() { padronizarNomes_(true); }
+
+function padronizarNomes_(gravar) {
+  const trava = LockService.getScriptLock();
+  if (gravar && !trava.tryLock(30000)) { Logger.log('Ocupado (venda em andamento). Tente de novo em alguns segundos.'); return; }
+  let total = 0;
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    [[ABA_INSCRICOES, ['Nome', 'Participantes']], [ABA_PEDIDOS, ['Nome']], [ABA_ENTREGAS, ['Nome', 'Participantes']]]
+      .forEach(function (cfg) {
+        const aba = ss.getSheetByName(cfg[0]);
+        if (!aba || aba.getLastRow() < 2) return;
+        cfg[1].forEach(function (titulo) {
+          const col = acharColuna(aba, titulo);
+          if (!col) return;
+          const faixa = aba.getRange(2, col, aba.getLastRow() - 1, 1);
+          const v = faixa.getValues();
+          let mudou = 0;
+          const novos = v.map(function (r) {
+            const antes = String(r[0] === undefined || r[0] === null ? '' : r[0]);
+            if (!antes.trim()) return [r[0]];
+            const depois = titulo === 'Participantes' ? participantesFormal(antes) : nomeFormal(antes);
+            if (depois !== antes) {
+              mudou++;
+              if (mudou <= 15) Logger.log('  [' + cfg[0] + ' · ' + titulo + '] "' + antes.replace(/\n/g, ' | ') + '" → "' + depois.replace(/\n/g, ' | ') + '"');
+            }
+            return [depois];
+          });
+          if (mudou > 15) Logger.log('  … e mais ' + (mudou - 15) + ' em ' + cfg[0] + ' · ' + titulo);
+          if (gravar && mudou) faixa.setValues(novos.map(function (r) { return [celula(r[0], 3000)]; }));
+          total += mudou;
+        });
+      });
+    Logger.log((gravar ? 'Nomes corrigidos: ' : 'SIMULAÇÃO — mudariam: ') + total + ' célula(s).' +
+               (gravar ? '' : '  (rode padronizarNomes() para gravar)'));
+  } finally {
+    if (gravar) trava.releaseLock();
+  }
+  if (gravar && total) atualizarEntregasAgora();   // reordena a lista do balcão (pega a trava de novo)
 }
