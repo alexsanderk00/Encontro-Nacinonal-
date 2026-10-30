@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-entregas-v3'
+    versao: '2026-10-30-entregas-v4'
   });
 }
 
@@ -392,7 +392,7 @@ function handleGratuito(inscrito, items, ehProduto, tabela) {
   const fakeResult = { id: idInterno, payment_type_id: 'gratuito' };
   tryOrLog(function () { saveToSheet(inscrito, items, 0, fakeResult, ehProduto, 'Confirmado (Gratuito)'); }, 'saveToSheet gratuito');
   tryOrLog(function () { sendConfirmationEmail(inscrito, items, 0, idInterno, ehProduto); }, 'email gratuito');
-  atualizarEntregasAgora(false);
+  agendarEntregas();
   return jsonOut({ status: 'approved', payment_id: idInterno, message: 'Inscrição gratuita confirmada!' });
 }
 
@@ -416,7 +416,7 @@ function routePaymentResult(result, inscrito, items, total, ehProduto) {
 function handleApproved(result, inscrito, items, total, ehProduto) {
   tryOrLog(function () { saveToSheet(inscrito, items, total, result, ehProduto); }, 'saveToSheet aprovado');
   tryOrLog(function () { sendConfirmationEmail(inscrito, items, total, result.id, ehProduto); }, 'email aprovado');
-  atualizarEntregasAgora(ehProduto);   // loja já está com a trava; inscrição pega a trava
+  agendarEntregas();
   return jsonOut({ status: 'approved', payment_id: result.id, message: 'Pagamento aprovado!' });
 }
 
@@ -623,7 +623,7 @@ function atualizarPixNaPlanilha(paymentId, statusMp) {
         tryOrLog(function () {
           sendConfirmationEmail(inscrito, items, data[i][colTotal - 1], paymentId, aba.ehProduto);
         }, 'email pix aprovado');
-        atualizarEntregasAgora(false);
+        agendarEntregas();
       } else {
         sheet.getRange(i + 1, colStatus).setValue(statusMp === 'expired' ? 'Pix Expirado' : 'Pix Cancelado');
         tryOrLog(function () { sendPixExpiredEmail(inscrito); }, 'email pix expirado');
@@ -673,7 +673,7 @@ function reverificarPixPendentes() {
   // Na mesma rotina: cartões "Em Análise" que o Mercado Pago já decidiu.
   tryOrLog(function () { processarEmAnalise_(true); }, 'reverificar em análise');
   // E mantém a aba Entregas em dia (balcão do evento).
-  atualizarEntregasAgora(false);
+  atualizarEntregasAgora();
 }
 
 /**
@@ -1434,7 +1434,7 @@ function conviteRecusados_(enviar) {
 /* ═══════════════════════════════════════════════════════════════════
  * ABA "ENTREGAS" — balcão do dia do evento
  *
- * Uma linha por pessoa (agrupada pelo CPF) com o que ela tem a retirar:
+ * Uma linha por pessoa (agrupada por um código secreto derivado do CPF) com o que ela tem a retirar:
  * inscrições + participantes + quantidade de cada produto/tamanho, e ao
  * lado as colunas de controle: caixinhas "Inscrição entregue" e "Produtos
  * entregues", "Entregue por / hora", "Assinatura" e "Observações".
@@ -1452,35 +1452,85 @@ const ENTREGA_ROTULO = function (k) {                     // "Camiseta Masculina
 };
 const ENTREGA_CONTROLE = ['Inscrição entregue', 'Produtos entregues', 'Entregue por / hora', 'Assinatura', 'Observações'];
 
-/* A aba Entregas não mostra CPF nem telefone. Para juntar inscrição e compras
-   da mesma pessoa usamos um código embaralhado (SHA-256) do CPF, numa coluna oculta. */
-function chaveEntrega(cpf, email) {
-  const d = String(cpf || '').replace(/\D/g, '');
-  const base = d.length === 11 ? 'cpf:' + d : 'email:' + String(email || '').trim().toLowerCase();
-  return hashChave(base);
+/* A aba Entregas não mostra CPF nem telefone. Para juntar inscrição e compras da
+   mesma pessoa usamos um código HMAC-SHA256 do CPF com um SEGREDO guardado nas
+   Propriedades do script (criado sozinho na 1ª vez) — sem o segredo não dá para
+   descobrir o CPF testando combinações. Fica numa coluna oculta. */
+function hexDe(bytes, n) {
+  return bytes.slice(0, n).map(function (x) { return ((x + 256) % 256).toString(16).padStart(2, '0'); }).join('');
 }
-function hashChave(base) {
-  if (/^h:/.test(base)) return base;
-  const b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, base, Utilities.Charset.UTF_8);
-  return 'h:' + b.slice(0, 10).map(function (x) { return ((x + 256) % 256).toString(16).padStart(2, '0'); }).join('');
+var _segredoEntregas = null;   // lido uma vez por execução (performance)
+function segredoEntregas() {
+  if (_segredoEntregas) return _segredoEntregas;
+  const props = PropertiesService.getScriptProperties();
+  let seg = props.getProperty('ENTREGAS_SEGREDO');
+  if (!seg) { seg = Utilities.getUuid() + Utilities.getUuid(); props.setProperty('ENTREGAS_SEGREDO', seg); }
+  _segredoEntregas = seg;
+  return seg;
+}
+function baseChave(cpf, email) {
+  const d = String(cpf || '').replace(/\D/g, '');
+  return d.length === 11 ? 'cpf:' + d : 'email:' + String(email || '').trim().toLowerCase();
+}
+function chaveDaBase(base) {
+  return 'k:' + hexDe(Utilities.computeHmacSha256Signature(base, segredoEntregas()), 12);
+}
+function chaveEntrega(cpf, email) { return chaveDaBase(baseChave(cpf, email)); }
+/* Formato usado pela versão anterior (SHA-256 sem segredo) — só para migrar. */
+function chaveAntigaSha(base) {
+  return 'h:' + hexDe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, base, Utilities.Charset.UTF_8), 10);
 }
 
-/* Atualiza a aba Entregas logo após cada pagamento aprovado.
-   jaComTrava = true quando quem chama já segura a trava do script (venda da loja). */
-function atualizarEntregasAgora(jaComTrava) {
-  if (jaComTrava) { tryOrLog(function () { atualizarEntregas(); }, 'entregas (na hora)'); return; }
-  const trava = LockService.getScriptLock();
-  if (!trava.tryLock(15000)) { Logger.log('Entregas: ocupado — a rotina de 10 min atualiza.'); return; }
-  try { tryOrLog(function () { atualizarEntregas(); }, 'entregas (na hora)'); }
-  finally { trava.releaseLock(); }
+/* Após cada pagamento aprovado, a aba Entregas é atualizada FORA da requisição
+   do pagamento (gatilho de execução única ~1 min depois). Assim o comprador recebe
+   a resposta na hora — atualizar a aba leva vários segundos e, dentro da requisição,
+   podia estourar o tempo do navegador depois de o cartão já ter sido cobrado.
+   Dedup: se já há uma atualização agendada, não agenda outra. Nunca lança erro. */
+function agendarEntregas() {
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache.get('entregas_agendada')) return;
+    cache.put('entregas_agendada', '1', 90);
+    ScriptApp.newTrigger('atualizarEntregasGatilho').timeBased().after(30 * 1000).create();
+  } catch (e) {
+    Logger.log('agendarEntregas: ' + e + ' — a rotina de 10 min atualiza.');
+  }
+}
+
+/* Handler do gatilho de execução única: atualiza e apaga os próprios gatilhos. */
+function atualizarEntregasGatilho() {
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'atualizarEntregasGatilho') ScriptApp.deleteTrigger(t);
+    });
+    CacheService.getScriptCache().remove('entregas_agendada');
+  } catch (e) { Logger.log('limpar gatilho entregas: ' + e); }
+  atualizarEntregasAgora();
+}
+
+/* Atualiza a aba Entregas com a trava do script (evita duas atualizações ao mesmo
+   tempo duplicarem linhas). SÓ chamar fora de requisições de pagamento (gatilho,
+   rotina de 10 min, editor) — o Apps Script não é reentrante: chamar isto dentro do
+   bloco travado da loja (doPost) esperaria 15 s e desistiria. Nunca lança erro. */
+function atualizarEntregasAgora() {
+  try {
+    const trava = LockService.getScriptLock();
+    if (!trava.tryLock(15000)) { Logger.log('Entregas: ocupado — próxima rodada atualiza.'); return; }
+    try { atualizarEntregas(); } finally { trava.releaseLock(); }
+  } catch (e) {
+    Logger.log('ERRO atualizarEntregasAgora: ' + e);
+  }
 }
 
 function atualizarEntregas() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const pessoas = {};
 
+  const migrar = {};    // chave antiga (CPF aberto / SHA sem segredo) → chave nova
   function pessoa(r, c) {
-    const k = chaveEntrega(r[c.cpf], r[c.email]);
+    const base = baseChave(r[c.cpf], r[c.email]);
+    const k = chaveDaBase(base);
+    if (!pessoas[k]) { migrar[base] = k; migrar[chaveAntigaSha(base)] = k; }
     return pessoas[k] || (pessoas[k] = { chave: k, nome: String(r[c.nome] || '').trim(), insc: {}, part: [], prod: {} });
   }
   function ler(nomeAba, fn) {
@@ -1543,7 +1593,8 @@ function atualizarEntregas() {
   let chavesMudaram = false;
   atual.forEach(function (r, i) {
     if (!r[colChave - 1]) return;
-    const k = hashChave(String(r[colChave - 1]));          // migra chaves antigas (CPF aberto) para o código
+    const antiga = String(r[colChave - 1]);
+    const k = migrar[antiga] || antiga;                    // migra chaves antigas para o código com segredo
     if (k !== r[colChave - 1]) { r[colChave - 1] = k; chavesMudaram = true; }
     existentes[k] = i;
   });

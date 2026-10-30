@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/shared.css">
+  <link rel="stylesheet" href="css/shared.css?v=20261030">
   <style>
     /* Campo armadilha anti-robô: fora da tela, humano não vê nem preenche. */
     .campo-armadilha { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
@@ -574,6 +574,7 @@
     </div>
   </footer>
 
+  <script src="js/checkout-ajuda.js?v=20261030"></script>
   <script src="https://sdk.mercadopago.com/js/v2"></script>
   <script>
     'use strict';
@@ -850,11 +851,16 @@
       let brickInitializing = false;
 
       function formularioValido() {
-        return formEl.checkValidity() && validarCPF(cpfInput.value);
+        return formEl.checkValidity() && validarCPF(cpfInput.value) && ajudaCheckout.camposOk(formEl);
       }
 
-      function checkFormAndPayment() {
-        if (!temItens() || !formularioValido() || state.total <= 0) return;
+      function checkFormAndPayment(e) {
+        if (!temItens() || state.total <= 0) return;
+        if (!formularioValido()) {
+          // Ao sair de um campo: explica o que falta para liberar o pagamento.
+          if (e && e.type === 'change') ajudaCheckout.explicarPendencias(formEl, formError);
+          return;
+        }
         hideError(formError);
         paymentSection.classList.add('visible');
         if (!state.brickController && !brickInitializing) initPaymentBrick();
@@ -862,6 +868,7 @@
 
       formEl.addEventListener('input', checkFormAndPayment);
       formEl.addEventListener('change', checkFormAndPayment);
+      ajudaCheckout.ligarFormulario(formEl);   // mensagem embaixo de cada campo errado
       /* E-mail alterado depois que o pagamento abriu → recria o Brick com o novo. */
       document.getElementById('email').addEventListener('change', function () {
         if (state.brickController && this.value.trim() !== emailNoBrick) {
@@ -903,7 +910,7 @@
               paymentMethods: { bankTransfer: 'all', creditCard: 'all', debitCard: 'all' }
             },
             callbacks: {
-              onReady: function () {},
+              onReady: function () { ajudaCheckout.sincronizarBrick(document.getElementById('payment-brick-container')); },
               onSubmit: async function (cardFormData) { await processPayment(cardFormData); },
               onError: function (error) {
               // Mostra o motivo informado pelo Mercado Pago (ajuda a diagnosticar pelo print).

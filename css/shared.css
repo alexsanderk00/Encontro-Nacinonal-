@@ -79,6 +79,11 @@ img {
   max-width: 100%;
 }
 
+/* Checkout: mensagem embaixo do campo com erro (js/checkout-ajuda.js) */
+.campo-erro { color: var(--erro); font-size: .82rem; margin-top: .3rem; min-height: 0; }
+.campo-erro:empty { display: none; }
+.campo-invalido { border-color: var(--erro) !important; background: #fff7f7 !important; }
+
 h1, h2, h3 {
   font-family: var(--font-display);
   font-weight: 600;
