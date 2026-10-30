@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-28-estoque'
+    versao: '2026-10-30-entregas'
   });
 }
 
@@ -669,6 +669,8 @@ function reverificarPixPendentes() {
   });
   // Na mesma rotina: cartões "Em Análise" que o Mercado Pago já decidiu.
   tryOrLog(function () { processarEmAnalise_(true); }, 'reverificar em análise');
+  // E mantém a aba Entregas em dia (balcão do evento).
+  tryOrLog(function () { atualizarEntregas(); }, 'atualizar entregas');
 }
 
 /**
@@ -1423,4 +1425,141 @@ function conviteRecusados_(enviar) {
     });
   });
   Logger.log((enviar ? 'Convites enviados: ' : 'Receberiam o convite: ') + total);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * ABA "ENTREGAS" — balcão do dia do evento
+ *
+ * Uma linha por pessoa (agrupada pelo CPF) com o que ela tem a retirar:
+ * inscrições + participantes + quantidade de cada produto/tamanho, e ao
+ * lado as colunas de controle: caixinhas "Inscrição entregue" e "Produtos
+ * entregues", "Entregue por / hora", "Assinatura" e "Observações".
+ *
+ * AUTOMÁTICA: roda junto da rotina de 10 em 10 minutos. Também dá para
+ * rodar na mão: atualizarEntregas().
+ * SEGURA: só reescreve as colunas de dados. O que vocês marcarem/escreverem
+ * nas colunas de controle nunca é apagado. Pessoa nova entra; a lista fica
+ * em ordem alfabética. Só entram pagamentos Aprovado/Confirmado.
+ * ═══════════════════════════════════════════════════════════════════ */
+const ABA_ENTREGAS = 'Entregas';
+const ENTREGA_PRODUTOS = Object.keys(ESTOQUE_INICIAL);   // uma coluna por produto/tamanho
+const ENTREGA_ROTULO = function (k) {                     // "Camiseta Masculina GG" → "Masc GG"
+  return k.replace('Camiseta Masculina', 'Masc').replace('Camiseta Feminina', 'Fem');
+};
+const ENTREGA_CONTROLE = ['Inscrição entregue', 'Produtos entregues', 'Entregue por / hora', 'Assinatura', 'Observações'];
+
+function atualizarEntregas() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const pessoas = {};   // chave → dados
+
+  function chaveDe(cpf, email) {
+    const d = String(cpf || '').replace(/\D/g, '');
+    return d.length === 11 ? 'cpf:' + d : 'email:' + String(email || '').trim().toLowerCase();
+  }
+  function pessoa(r, c) {
+    const k = chaveDe(r[c.cpf], r[c.email]);
+    return pessoas[k] || (pessoas[k] = {
+      chave: k, nome: String(r[c.nome] || '').trim(), cpf: maskCpf(r[c.cpf]),
+      tel: String(r[c.tel] || ''), insc: {}, part: [], prod: {}
+    });
+  }
+  function ler(nomeAba, fn) {
+    const aba = ss.getSheetByName(nomeAba);
+    if (!aba || aba.getLastRow() < 2) return;
+    const v = aba.getDataRange().getValues(), h = v[0];
+    const c = { nome: h.indexOf('Nome'), email: h.indexOf('Email'), cpf: h.indexOf('CPF'), tel: h.indexOf('Telefone'),
+                det: h.indexOf('Itens (detalhe)'), st: h.indexOf('Status Pagamento'), part: h.indexOf('Participantes') };
+    for (let i = 1; i < v.length; i++) {
+      const st = String(v[i][c.st] || '');
+      if (st.indexOf('Aprovado') < 0 && st.indexOf('Confirmado') < 0) continue;
+      fn(v[i], c);
+    }
+  }
+  ler(ABA_INSCRICOES, function (r, c) {
+    const p = pessoa(r, c), itens = parseItensDetalhe(r[c.det]);
+    Object.keys(itens).forEach(function (k) { p.insc[k] = (p.insc[k] || 0) + itens[k]; });
+    if (c.part >= 0 && r[c.part]) p.part.push(String(r[c.part]));
+  });
+  ler(ABA_PEDIDOS, function (r, c) {
+    const p = pessoa(r, c), itens = parseItensDetalhe(r[c.det]);
+    Object.keys(itens).forEach(function (k) { p.prod[k] = (p.prod[k] || 0) + itens[k]; });
+  });
+
+  const cab = ['Nome', 'CPF', 'Telefone', 'Inscrições', 'Participantes']
+    .concat(ENTREGA_PRODUTOS.map(ENTREGA_ROTULO), ['Total de itens'], ENTREGA_CONTROLE, ['chave']);
+  const nDados = 5 + ENTREGA_PRODUTOS.length + 1;          // colunas reescritas pela automação
+  const colChave = cab.length;
+
+  function linhaDados(p) {
+    const inscTxt = Object.keys(p.insc).map(function (k) { return k + ' ×' + p.insc[k]; }).join('\n');
+    const qtds = ENTREGA_PRODUTOS.map(function (k) { return p.prod[k] || ''; });
+    const total = ENTREGA_PRODUTOS.reduce(function (s, k) { return s + (p.prod[k] || 0); }, 0);
+    return [celula(p.nome, 120), p.cpf, celula(p.tel, 20), inscTxt || '—',
+            celula(p.part.join('\n'), 3000)].concat(qtds, [total || '']);
+  }
+
+  let aba = ss.getSheetByName(ABA_ENTREGAS);
+  const nova = !aba;
+  if (nova) aba = ss.insertSheet(ABA_ENTREGAS);
+  if (nova || aba.getLastRow() < 1) {
+    aba.getRange(1, 1, 1, cab.length).setValues([cab])
+      .setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01').setWrap(true);
+    aba.setFrozenRows(1);
+    aba.setFrozenColumns(1);
+    aba.setColumnWidth(1, 220); aba.setColumnWidth(4, 170); aba.setColumnWidth(5, 240);
+    for (let j = 6; j < 6 + ENTREGA_PRODUTOS.length; j++) aba.setColumnWidth(j, 62);
+    aba.setColumnWidth(nDados + 3, 150); aba.setColumnWidth(nDados + 4, 220); aba.setColumnWidth(nDados + 5, 200);
+    aba.hideColumns(colChave);
+  }
+
+  // Linhas já existentes (por chave) — preserva as colunas de controle.
+  const existentes = {};
+  const ultima = aba.getLastRow();
+  const atual = ultima > 1 ? aba.getRange(2, 1, ultima - 1, colChave).getValues() : [];
+  atual.forEach(function (r, i) { if (r[colChave - 1]) existentes[r[colChave - 1]] = i; });
+
+  // Atualiza dados das linhas existentes; quem saiu (cancelou) fica marcado.
+  const blocoDados = atual.map(function (r) {
+    const p = pessoas[r[colChave - 1]];
+    if (p) {
+      const linha = linhaDados(p);
+      // Comprou mais depois de já ter retirado os produtos → alerta no total.
+      // Some quando o balcão desmarcar e marcar de novo "Produtos entregues".
+      const jaRetirou = r[nDados + 1] === true;
+      const antes = String(r[nDados - 1] || '');
+      const novoTotal = Number(linha[nDados - 1]) || 0;
+      if (jaRetirou && (novoTotal > (parseInt(antes, 10) || 0) || antes.indexOf('⚠') >= 0)) {
+        linha[nDados - 1] = novoTotal + ' ⚠ comprou mais depois da entrega';
+      }
+      return linha;
+    }
+    const vazio = r.slice(0, nDados);
+    vazio[3] = '⚠ sem inscrição/pedido pago';
+    for (let j = 5; j < nDados; j++) vazio[j] = '';
+    return vazio;
+  });
+  if (blocoDados.length) aba.getRange(2, 1, blocoDados.length, nDados).setValues(blocoDados);
+
+  // Pessoas novas no fim.
+  const novas = Object.keys(pessoas).filter(function (k) { return existentes[k] === undefined; });
+  if (novas.length) {
+    const ini = aba.getLastRow() + 1;
+    const linhas = novas.map(function (k) {
+      return linhaDados(pessoas[k]).concat([false, false, '', '', '', k]);
+    });
+    aba.getRange(ini, 1, linhas.length, colChave).setValues(linhas);
+    aba.getRange(ini, nDados + 1, linhas.length, 2).insertCheckboxes();   // caixinhas desmarcadas
+  }
+
+  // Ordem alfabética (as colunas de controle andam junto com a linha).
+  const total = aba.getLastRow() - 1;
+  if (total > 1) aba.getRange(2, 1, total, colChave).sort({ column: 1, ascending: true });
+  if (total > 0) {
+    aba.getRange(2, 4, total, 2).setWrap(true).setVerticalAlignment('top');
+    aba.getRange(2, 6, total, ENTREGA_PRODUTOS.length + 1).setHorizontalAlignment('center');
+    aba.setRowHeights(2, total, 42);   // espaço para a assinatura
+  }
+  Logger.log('Entregas: ' + Object.keys(pessoas).length + ' pessoa(s) com inscrição/pedido pago' +
+             (novas.length ? ' (' + novas.length + ' nova(s))' : '') + '.');
 }
