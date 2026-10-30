@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-nomes'
+    versao: '2026-10-30-extra'
   });
 }
 
@@ -1438,6 +1438,11 @@ function conviteRecusados_(enviar) {
  * inscrições + participantes + quantidade de cada produto/tamanho, e ao
  * lado as colunas de controle: caixinhas "Inscrição entregue" e "Produtos
  * entregues", "Entregue por / hora", "Assinatura" e "Observações".
+ * COMPROU DEPOIS DA ENTREGA: a coluna "Comprou depois (falta entregar)" mostra
+ * exatamente o que a pessoa comprou depois que o balcão marcou a entrega; o balcão
+ * entrega, marca "Extra entregue" e colhe "Extra: entregue por / hora" e
+ * "Extra: assinatura". (Uma coluna oculta "foto" guarda o que ela tinha quando
+ * cada caixinha foi marcada — é assim que o script sabe o que é novo.)
  *
  * AUTOMÁTICA: roda junto da rotina de 10 em 10 minutos. Também dá para
  * rodar na mão: atualizarEntregas().
@@ -1450,7 +1455,11 @@ const ENTREGA_PRODUTOS = Object.keys(ESTOQUE_INICIAL);   // uma coluna por produ
 const ENTREGA_ROTULO = function (k) {                     // "Camiseta Masculina GG" → "Masc GG"
   return k.replace('Camiseta Masculina', 'Masc').replace('Camiseta Feminina', 'Fem');
 };
-const ENTREGA_CONTROLE = ['Inscrição entregue', 'Produtos entregues', 'Entregue por / hora', 'Assinatura', 'Observações'];
+const ENTREGA_CONTROLE = ['Inscrição entregue', 'Produtos entregues', 'Entregue por / hora', 'Assinatura', 'Observações',
+                          'Comprou depois (falta entregar)', 'Extra entregue', 'Extra: entregue por / hora', 'Extra: assinatura'];
+// Índices (0 = coluna A) dentro da linha, a partir de nDados (= 1ª coluna de controle):
+//   +0 Inscrição entregue  +1 Produtos entregues  +2 Entregue por  +3 Assinatura  +4 Observações
+//   +5 Comprou depois (o script escreve)  +6 Extra entregue  +7 Extra: entregue por  +8 Extra: assinatura
 
 /* A aba Entregas não mostra CPF nem telefone. Para juntar inscrição e compras da
    mesma pessoa usamos um código HMAC-SHA256 do CPF com um SEGREDO guardado nas
@@ -1579,19 +1588,36 @@ function atualizarEntregas() {
     const h = aba.getRange(1, 1, 1, 3).getValues()[0];
     if (h[1] === 'CPF' && h[2] === 'Telefone') aba.deleteColumns(2, 2);
   }
+  // Migração v7: entram 4 colunas do "comprou depois" antes da coluna oculta "chave".
+  if (aba.getLastColumn() >= 1) {
+    const h1 = aba.getRange(1, 1, 1, aba.getLastColumn()).getValues()[0];
+    const posChave = h1.indexOf('chave') + 1;
+    if (posChave > 0 && posChave < colChave) {
+      const n = colChave - posChave;
+      aba.insertColumnsBefore(posChave, n);
+      aba.showColumns(posChave, n);
+      if (aba.getLastRow() > 1) {
+        aba.getRange(2, posChave, aba.getLastRow() - 1, n).clearDataValidations().clearContent();
+        aba.getRange(2, nDados + 7, aba.getLastRow() - 1, 1).insertCheckboxes();   // "Extra entregue"
+      }
+      Logger.log('Entregas: colunas do "comprou depois" criadas.');
+    }
+  }
   aba.getRange(1, 1, 1, cab.length).setValues([cab]);
-  aba.getRange(1, colSit).setValue('');
+  aba.getRange(1, colSit).setValue('foto (não mexer)');
   aba.getRange(1, 1, 1, colSit).setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01').setWrap(true);
   aba.setFrozenRows(1);
   aba.setFrozenColumns(1);
   aba.setColumnWidth(1, 220); aba.setColumnWidth(2, 170); aba.setColumnWidth(3, 240);
   for (let j = 4; j < 4 + ENTREGA_PRODUTOS.length; j++) aba.setColumnWidth(j, 62);
   aba.setColumnWidth(nDados + 3, 150); aba.setColumnWidth(nDados + 4, 220); aba.setColumnWidth(nDados + 5, 200);
+  aba.setColumnWidth(nDados + 6, 260); aba.setColumnWidth(nDados + 7, 80);
+  aba.setColumnWidth(nDados + 8, 150); aba.setColumnWidth(nDados + 9, 220);
 
   // Linhas existentes (por chave) — colunas de controle preservadas.
   const existentes = {};
   const ultima = aba.getLastRow();
-  const atual = ultima > 1 ? aba.getRange(2, 1, ultima - 1, colChave).getValues() : [];
+  const atual = ultima > 1 ? aba.getRange(2, 1, ultima - 1, colSit).getValues() : [];
   let chavesMudaram = false;
   atual.forEach(function (r, i) {
     if (!r[colChave - 1]) return;
@@ -1603,46 +1629,51 @@ function atualizarEntregas() {
   if (chavesMudaram && atual.length)
     aba.getRange(2, colChave, atual.length, 1).setValues(atual.map(function (r) { return [r[colChave - 1]]; }));
 
+  const extras = [], fotos = [];
   const blocoDados = atual.map(function (r) {
+    // A foto usa a linha COMO ESTAVA (o que o balcão viu ao marcar), antes dos dados novos.
+    const foto = r[colChave - 1] ? ajustarFoto_(r, lerFoto_(r[colSit - 1]), nDados) : {};
     const p = pessoas[r[colChave - 1]];
+    let linha;
     if (p) {
-      const linha = linhaDados(p);
-      // Comprou mais depois de já ter retirado os produtos → alerta no total.
-      // Some quando o balcão desmarcar e marcar de novo "Produtos entregues".
-      const jaRetirou = r[nDados + 1] === true;
-      const antes = String(r[nDados - 1] || '');
-      const novoTotal = Number(linha[nDados - 1]) || 0;
-      if (jaRetirou && (novoTotal > (parseInt(antes, 10) || 0) || antes.indexOf('⚠') >= 0)) {
-        linha[nDados - 1] = novoTotal + ' ⚠ comprou mais depois da entrega';
-      }
-      return linha;
+      linha = linhaDados(p);
+    } else {
+      linha = r.slice(0, nDados);
+      linha[1] = '⚠ sem inscrição/pedido pago';
+      for (let j = 3; j < nDados; j++) linha[j] = '';
     }
-    const vazio = r.slice(0, nDados);
-    vazio[1] = '⚠ sem inscrição/pedido pago';
-    for (let j = 3; j < nDados; j++) vazio[j] = '';
-    return vazio;
+    extras.push([!r[colChave - 1] ? r[nDados + 5] : p ? textoCompraDepois_(linha, foto) : '']);
+    fotos.push([r[colChave - 1] ? fotoTexto_(foto) : r[colSit - 1]]);
+    return linha;
   });
-  if (blocoDados.length) aba.getRange(2, 1, blocoDados.length, nDados).setValues(blocoDados);
+  if (blocoDados.length) {
+    aba.getRange(2, 1, blocoDados.length, nDados).setValues(blocoDados);
+    aba.getRange(2, nDados + 6, extras.length, 1).setValues(extras);
+    aba.getRange(2, colSit, fotos.length, 1).setValues(fotos);
+  }
 
   const novas = Object.keys(pessoas).filter(function (k) { return existentes[k] === undefined; });
   if (novas.length) {
     const ini = aba.getLastRow() + 1;
-    const linhas = novas.map(function (k) { return linhaDados(pessoas[k]).concat([false, false, '', '', '', k]); });
-    aba.getRange(ini, 1, linhas.length, colChave).setValues(linhas);
+    const linhas = novas.map(function (k) {
+      return linhaDados(pessoas[k]).concat([false, false, '', '', '', '', false, '', '', k, '']);
+    });
+    aba.getRange(ini, 1, linhas.length, colSit).setValues(linhas);
     aba.getRange(ini, nDados + 1, linhas.length, 2).insertCheckboxes();
+    aba.getRange(ini, nDados + 7, linhas.length, 1).insertCheckboxes();
   }
 
   const total = aba.getLastRow() - 1;
-  if (total > 1) aba.getRange(2, 1, total, colChave).sort({ column: 1, ascending: true });
+  if (total > 1) aba.getRange(2, 1, total, colSit).sort({ column: 1, ascending: true });
   if (total > 0) {
     aba.getRange(2, 2, total, 2).setWrap(true).setVerticalAlignment('top');
     aba.getRange(2, 4, total, ENTREGA_PRODUTOS.length + 1).setHorizontalAlignment('center');
     aba.setRowHeights(2, total, 42);
+    aba.getRange(2, nDados + 6, total, 1).setWrap(true).setVerticalAlignment('top').setFontWeight('bold');
   }
   aba.hideColumns(colChave, 2);
   // Cores: pintadas pelo script (não dependem de fórmula nem do idioma da planilha).
   aba.setConditionalFormatRules([]);                            // remove regras antigas
-  if (aba.getMaxRows() > 1) aba.getRange(2, colSit, aba.getMaxRows() - 1, 1).clearContent();
   if (total > 0) pintarLinhasEntregas_(aba, 2, total);
   instalarTriggerCliqueEntregas_();
   Logger.log('Entregas: ' + Object.keys(pessoas).length + ' pessoa(s) com inscrição/pedido pago' +
@@ -1651,7 +1682,7 @@ function atualizarEntregas() {
 
 /* CORES DA ABA ENTREGAS (pintadas pelo script, sem fórmula):
      VERDE   = recebeu tudo o que tem (só inscrição, só produtos, ou os dois)
-     AMARELO = marcou algo mas falta alguma coisa (ou "⚠ comprou mais depois")
+     AMARELO = marcou algo mas falta alguma coisa (ou comprou depois e o extra não foi entregue)
      BRANCO  = nada entregue ainda
    Ao clicar numa caixinha, o gatilho aoEditarEntregas pinta a linha (~1–2 s). */
 const COR_VERDE = '#b7e1cd', COR_AMARELO = '#fce8b2';
@@ -1664,7 +1695,9 @@ function corDaLinhaEntrega_(r, nDados) {
   if (!inscOk && !prodOk) return null;
   const temInsc = insc !== '—' && insc.charAt(0) !== '⚠' && insc.trim() !== '';
   const temProd = total.trim() !== '';
-  const alerta = total.indexOf('⚠') >= 0;
+  const depois = String(r[nDados + 5] || ''), extraOk = r[nDados + 6] === true;
+  const alerta = total.indexOf('⚠') >= 0 ||
+                 (depois.trim() !== '' && (!extraOk || depois.indexOf('⚠') >= 0));
   const tudo = (!temInsc || inscOk) && (!temProd || prodOk) && !alerta;
   return tudo ? COR_VERDE : COR_AMARELO;
 }
@@ -1673,7 +1706,7 @@ function corDaLinhaEntrega_(r, nDados) {
 function pintarLinhasEntregas_(aba, linhaIni, qtd) {
   const nDados = 3 + ENTREGA_PRODUTOS.length + 1;
   const ultimaCor = nDados + ENTREGA_CONTROLE.length;          // até "Observações"
-  const v = aba.getRange(linhaIni, 1, qtd, nDados + 2).getValues();
+  const v = aba.getRange(linhaIni, 1, qtd, nDados + 7).getValues();
   const cores = v.map(function (r) {
     const c = corDaLinhaEntrega_(r, nDados);
     const linha = []; for (let j = 0; j < ultimaCor; j++) linha.push(c); return linha;
@@ -1690,8 +1723,93 @@ function aoEditarEntregas(e) {
     const ini = Math.max(2, e.range.getRow());
     const fim = e.range.getRow() + e.range.getNumRows() - 1;
     if (fim < ini) return;
+    // Aba ainda no layout antigo (antes da 1ª atualização desta versão): não mexe.
+    if (aba.getRange(1, 3 + ENTREGA_PRODUTOS.length + 1 + ENTREGA_CONTROLE.length + 1).getValue() !== 'chave') return;
+    try { atualizarExtraLinhas_(aba, ini, fim - ini + 1); } catch (err) { Logger.log('extra: ' + err); }
     pintarLinhasEntregas_(aba, ini, fim - ini + 1);
   } catch (err) { Logger.log('aoEditarEntregas: ' + err); }
+}
+
+/* ── COMPROU DEPOIS DA ENTREGA ─────────────────────────────────────────
+   foto (coluna oculta, JSON) = o que a linha mostrava quando cada caixinha foi marcada:
+     i = inscrições (ao marcar "Inscrição entregue"), p = produtos (ao marcar
+     "Produtos entregues"), x = tudo (ao marcar "Extra entregue").
+   Desmarcou a caixinha → aquela parte da foto é apagada. */
+function qtdsDaLinha_(r) {
+  const insc = {}, prod = {};
+  String(r[1] || '').split('\n').forEach(function (l) {
+    const m = l.match(/^(.*) ×(\d+)$/);
+    if (m) insc[m[1]] = (insc[m[1]] || 0) + Number(m[2]);
+  });
+  ENTREGA_PRODUTOS.forEach(function (k, j) { const n = Number(r[3 + j]) || 0; if (n > 0) prod[k] = n; });
+  return { i: insc, p: prod };
+}
+function lerFoto_(v) {
+  try { const f = JSON.parse(String(v || '')); return f && typeof f === 'object' ? f : {}; } catch (e) { return {}; }
+}
+function fotoTexto_(foto) { return Object.keys(foto).length ? JSON.stringify(foto) : ''; }
+function sobra_(atual, base) {          // o que há em "atual" além de "base"
+  const s = {};
+  Object.keys(atual).forEach(function (k) { const d = atual[k] - (base[k] || 0); if (d > 0) s[k] = d; });
+  return s;
+}
+function textoItens_(insc, prod) {
+  return Object.keys(insc).map(function (k) { return 'Inscrição ' + k + ' ×' + insc[k]; })
+    .concat(Object.keys(prod).map(function (k) { return k + ' ×' + prod[k]; })).join(', ');
+}
+/* rVisto = a linha como o balcão a via (caixinhas + quantidades daquele momento). */
+function ajustarFoto_(rVisto, foto, nDados) {
+  const inscOk = rVisto[nDados] === true, prodOk = rVisto[nDados + 1] === true, extraOk = rVisto[nDados + 6] === true;
+  const q = qtdsDaLinha_(rVisto);
+  if (inscOk) { if (!foto.i) foto.i = q.i; } else delete foto.i;
+  if (prodOk) {
+    if (!foto.p) {
+      foto.p = q.p;
+      // versão antiga já marcava "⚠ comprou mais depois" no Total: não dá para saber o quê
+      if (String(rVisto[nDados - 1] || '').indexOf('⚠') >= 0) foto.pv = 1;
+    }
+  } else { delete foto.p; delete foto.pv; }
+  if (!extraOk || (!foto.i && !foto.p)) delete foto.x;
+  else if (!foto.x) {          // marcou o extra: tudo o que vier depois é "de novo"
+    foto.x = { i: foto.i ? q.i : {}, p: foto.p ? q.p : {} };
+    delete foto.pv;
+  }
+  return foto;
+}
+/* Texto da coluna "Comprou depois": o que há agora além do que já foi entregue. */
+function textoCompraDepois_(rAtual, foto) {
+  const q = qtdsDaLinha_(rAtual);
+  let txt = textoItens_(foto.i ? sobra_(q.i, foto.i) : {}, foto.p ? sobra_(q.p, foto.p) : {});
+  if (!txt && foto.pv) txt = '⚠ comprou mais depois da entrega — confira os itens';
+  if (txt && foto.x) {
+    const deNovo = textoItens_(foto.i ? sobra_(q.i, foto.x.i || {}) : {}, foto.p ? sobra_(q.p, foto.x.p || {}) : {});
+    if (deNovo) txt += '\n⚠ comprou DE NOVO depois do extra: ' + deNovo;
+  }
+  return txt;
+}
+/* Ao clicar numa caixinha: atualiza foto e "Comprou depois" das linhas editadas. */
+function atualizarExtraLinhas_(aba, ini, qtd) {
+  const nDados = 3 + ENTREGA_PRODUTOS.length + 1;
+  const colChave = nDados + ENTREGA_CONTROLE.length + 1, colFoto = colChave + 1;
+  if (aba.getRange(1, colChave).getValue() !== 'chave') return;   // layout antigo: a atualização migra
+  const trava = LockService.getScriptLock();
+  if (!trava.tryLock(5000)) return;                               // a próxima atualização acerta
+  try {
+    const v = aba.getRange(ini, 1, qtd, colFoto).getValues();
+    let mudou = false;
+    const txts = [], fotos = [];
+    v.forEach(function (r) {
+      if (!r[colChave - 1]) { txts.push([r[nDados + 5]]); fotos.push([r[colFoto - 1]]); return; }
+      const foto = ajustarFoto_(r, lerFoto_(r[colFoto - 1]), nDados);
+      const t = textoCompraDepois_(r, foto), f = fotoTexto_(foto);
+      if (t !== String(r[nDados + 5] || '') || f !== String(r[colFoto - 1] || '')) mudou = true;
+      txts.push([t]); fotos.push([f]);
+    });
+    if (mudou) {
+      aba.getRange(ini, nDados + 6, qtd, 1).setValues(txts);
+      aba.getRange(ini, colFoto, qtd, 1).setValues(fotos);
+    }
+  } finally { trava.releaseLock(); }
 }
 
 /* Instala (uma vez) o gatilho de edição da planilha que pinta a linha no clique. */
