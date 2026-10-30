@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-entregas'
+    versao: '2026-10-30-entregas-v3'
   });
 }
 
@@ -392,6 +392,7 @@ function handleGratuito(inscrito, items, ehProduto, tabela) {
   const fakeResult = { id: idInterno, payment_type_id: 'gratuito' };
   tryOrLog(function () { saveToSheet(inscrito, items, 0, fakeResult, ehProduto, 'Confirmado (Gratuito)'); }, 'saveToSheet gratuito');
   tryOrLog(function () { sendConfirmationEmail(inscrito, items, 0, idInterno, ehProduto); }, 'email gratuito');
+  atualizarEntregasAgora(false);
   return jsonOut({ status: 'approved', payment_id: idInterno, message: 'Inscrição gratuita confirmada!' });
 }
 
@@ -415,6 +416,7 @@ function routePaymentResult(result, inscrito, items, total, ehProduto) {
 function handleApproved(result, inscrito, items, total, ehProduto) {
   tryOrLog(function () { saveToSheet(inscrito, items, total, result, ehProduto); }, 'saveToSheet aprovado');
   tryOrLog(function () { sendConfirmationEmail(inscrito, items, total, result.id, ehProduto); }, 'email aprovado');
+  atualizarEntregasAgora(ehProduto);   // loja já está com a trava; inscrição pega a trava
   return jsonOut({ status: 'approved', payment_id: result.id, message: 'Pagamento aprovado!' });
 }
 
@@ -621,6 +623,7 @@ function atualizarPixNaPlanilha(paymentId, statusMp) {
         tryOrLog(function () {
           sendConfirmationEmail(inscrito, items, data[i][colTotal - 1], paymentId, aba.ehProduto);
         }, 'email pix aprovado');
+        atualizarEntregasAgora(false);
       } else {
         sheet.getRange(i + 1, colStatus).setValue(statusMp === 'expired' ? 'Pix Expirado' : 'Pix Cancelado');
         tryOrLog(function () { sendPixExpiredEmail(inscrito); }, 'email pix expirado');
@@ -670,7 +673,7 @@ function reverificarPixPendentes() {
   // Na mesma rotina: cartões "Em Análise" que o Mercado Pago já decidiu.
   tryOrLog(function () { processarEmAnalise_(true); }, 'reverificar em análise');
   // E mantém a aba Entregas em dia (balcão do evento).
-  tryOrLog(function () { atualizarEntregas(); }, 'atualizar entregas');
+  atualizarEntregasAgora(false);
 }
 
 /**
@@ -1449,26 +1452,42 @@ const ENTREGA_ROTULO = function (k) {                     // "Camiseta Masculina
 };
 const ENTREGA_CONTROLE = ['Inscrição entregue', 'Produtos entregues', 'Entregue por / hora', 'Assinatura', 'Observações'];
 
+/* A aba Entregas não mostra CPF nem telefone. Para juntar inscrição e compras
+   da mesma pessoa usamos um código embaralhado (SHA-256) do CPF, numa coluna oculta. */
+function chaveEntrega(cpf, email) {
+  const d = String(cpf || '').replace(/\D/g, '');
+  const base = d.length === 11 ? 'cpf:' + d : 'email:' + String(email || '').trim().toLowerCase();
+  return hashChave(base);
+}
+function hashChave(base) {
+  if (/^h:/.test(base)) return base;
+  const b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, base, Utilities.Charset.UTF_8);
+  return 'h:' + b.slice(0, 10).map(function (x) { return ((x + 256) % 256).toString(16).padStart(2, '0'); }).join('');
+}
+
+/* Atualiza a aba Entregas logo após cada pagamento aprovado.
+   jaComTrava = true quando quem chama já segura a trava do script (venda da loja). */
+function atualizarEntregasAgora(jaComTrava) {
+  if (jaComTrava) { tryOrLog(function () { atualizarEntregas(); }, 'entregas (na hora)'); return; }
+  const trava = LockService.getScriptLock();
+  if (!trava.tryLock(15000)) { Logger.log('Entregas: ocupado — a rotina de 10 min atualiza.'); return; }
+  try { tryOrLog(function () { atualizarEntregas(); }, 'entregas (na hora)'); }
+  finally { trava.releaseLock(); }
+}
+
 function atualizarEntregas() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const pessoas = {};   // chave → dados
+  const pessoas = {};
 
-  function chaveDe(cpf, email) {
-    const d = String(cpf || '').replace(/\D/g, '');
-    return d.length === 11 ? 'cpf:' + d : 'email:' + String(email || '').trim().toLowerCase();
-  }
   function pessoa(r, c) {
-    const k = chaveDe(r[c.cpf], r[c.email]);
-    return pessoas[k] || (pessoas[k] = {
-      chave: k, nome: String(r[c.nome] || '').trim(), cpf: maskCpf(r[c.cpf]),
-      tel: String(r[c.tel] || ''), insc: {}, part: [], prod: {}
-    });
+    const k = chaveEntrega(r[c.cpf], r[c.email]);
+    return pessoas[k] || (pessoas[k] = { chave: k, nome: String(r[c.nome] || '').trim(), insc: {}, part: [], prod: {} });
   }
   function ler(nomeAba, fn) {
     const aba = ss.getSheetByName(nomeAba);
     if (!aba || aba.getLastRow() < 2) return;
     const v = aba.getDataRange().getValues(), h = v[0];
-    const c = { nome: h.indexOf('Nome'), email: h.indexOf('Email'), cpf: h.indexOf('CPF'), tel: h.indexOf('Telefone'),
+    const c = { nome: h.indexOf('Nome'), email: h.indexOf('Email'), cpf: h.indexOf('CPF'),
                 det: h.indexOf('Itens (detalhe)'), st: h.indexOf('Status Pagamento'), part: h.indexOf('Participantes') };
     for (let i = 1; i < v.length; i++) {
       const st = String(v[i][c.st] || '');
@@ -1486,40 +1505,51 @@ function atualizarEntregas() {
     Object.keys(itens).forEach(function (k) { p.prod[k] = (p.prod[k] || 0) + itens[k]; });
   });
 
-  const cab = ['Nome', 'CPF', 'Telefone', 'Inscrições', 'Participantes']
+  // Layout: Nome | Inscrições | Participantes | produtos… | Total | controles… | chave (oculta) | situação (oculta)
+  const cab = ['Nome', 'Inscrições', 'Participantes']
     .concat(ENTREGA_PRODUTOS.map(ENTREGA_ROTULO), ['Total de itens'], ENTREGA_CONTROLE, ['chave']);
-  const nDados = 5 + ENTREGA_PRODUTOS.length + 1;          // colunas reescritas pela automação
+  const nDados = 3 + ENTREGA_PRODUTOS.length + 1;          // colunas reescritas pela automação
   const colChave = cab.length;
+  const colSit = colChave + 1;
 
   function linhaDados(p) {
     const inscTxt = Object.keys(p.insc).map(function (k) { return k + ' ×' + p.insc[k]; }).join('\n');
     const qtds = ENTREGA_PRODUTOS.map(function (k) { return p.prod[k] || ''; });
     const total = ENTREGA_PRODUTOS.reduce(function (s, k) { return s + (p.prod[k] || 0); }, 0);
-    return [celula(p.nome, 120), p.cpf, celula(p.tel, 20), inscTxt || '—',
-            celula(p.part.join('\n'), 3000)].concat(qtds, [total || '']);
+    return [celula(p.nome, 120), inscTxt || '—', celula(p.part.join('\n'), 3000)].concat(qtds, [total || '']);
   }
 
   let aba = ss.getSheetByName(ABA_ENTREGAS);
-  const nova = !aba;
-  if (nova) aba = ss.insertSheet(ABA_ENTREGAS);
-  if (nova || aba.getLastRow() < 1) {
-    aba.getRange(1, 1, 1, cab.length).setValues([cab])
-      .setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01').setWrap(true);
-    aba.setFrozenRows(1);
-    aba.setFrozenColumns(1);
-    aba.setColumnWidth(1, 220); aba.setColumnWidth(4, 170); aba.setColumnWidth(5, 240);
-    for (let j = 6; j < 6 + ENTREGA_PRODUTOS.length; j++) aba.setColumnWidth(j, 62);
-    aba.setColumnWidth(nDados + 3, 150); aba.setColumnWidth(nDados + 4, 220); aba.setColumnWidth(nDados + 5, 200);
-    aba.hideColumns(colChave);
-  }
+  if (!aba) aba = ss.insertSheet(ABA_ENTREGAS);
 
-  // Linhas já existentes (por chave) — preserva as colunas de controle.
+  // Migração: a versão anterior tinha CPF e Telefone nas colunas 2 e 3 → remove (controles ficam intactos).
+  if (aba.getLastRow() >= 1 && aba.getLastColumn() >= 3) {
+    const h = aba.getRange(1, 1, 1, 3).getValues()[0];
+    if (h[1] === 'CPF' && h[2] === 'Telefone') aba.deleteColumns(2, 2);
+  }
+  aba.getRange(1, 1, 1, cab.length).setValues([cab]);
+  aba.getRange(1, colSit).setValue('situação');
+  aba.getRange(1, 1, 1, colSit).setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01').setWrap(true);
+  aba.setFrozenRows(1);
+  aba.setFrozenColumns(1);
+  aba.setColumnWidth(1, 220); aba.setColumnWidth(2, 170); aba.setColumnWidth(3, 240);
+  for (let j = 4; j < 4 + ENTREGA_PRODUTOS.length; j++) aba.setColumnWidth(j, 62);
+  aba.setColumnWidth(nDados + 3, 150); aba.setColumnWidth(nDados + 4, 220); aba.setColumnWidth(nDados + 5, 200);
+
+  // Linhas existentes (por chave) — colunas de controle preservadas.
   const existentes = {};
   const ultima = aba.getLastRow();
   const atual = ultima > 1 ? aba.getRange(2, 1, ultima - 1, colChave).getValues() : [];
-  atual.forEach(function (r, i) { if (r[colChave - 1]) existentes[r[colChave - 1]] = i; });
+  let chavesMudaram = false;
+  atual.forEach(function (r, i) {
+    if (!r[colChave - 1]) return;
+    const k = hashChave(String(r[colChave - 1]));          // migra chaves antigas (CPF aberto) para o código
+    if (k !== r[colChave - 1]) { r[colChave - 1] = k; chavesMudaram = true; }
+    existentes[k] = i;
+  });
+  if (chavesMudaram && atual.length)
+    aba.getRange(2, colChave, atual.length, 1).setValues(atual.map(function (r) { return [r[colChave - 1]]; }));
 
-  // Atualiza dados das linhas existentes; quem saiu (cancelou) fica marcado.
   const blocoDados = atual.map(function (r) {
     const p = pessoas[r[colChave - 1]];
     if (p) {
@@ -1535,31 +1565,50 @@ function atualizarEntregas() {
       return linha;
     }
     const vazio = r.slice(0, nDados);
-    vazio[3] = '⚠ sem inscrição/pedido pago';
-    for (let j = 5; j < nDados; j++) vazio[j] = '';
+    vazio[1] = '⚠ sem inscrição/pedido pago';
+    for (let j = 3; j < nDados; j++) vazio[j] = '';
     return vazio;
   });
   if (blocoDados.length) aba.getRange(2, 1, blocoDados.length, nDados).setValues(blocoDados);
 
-  // Pessoas novas no fim.
   const novas = Object.keys(pessoas).filter(function (k) { return existentes[k] === undefined; });
   if (novas.length) {
     const ini = aba.getLastRow() + 1;
-    const linhas = novas.map(function (k) {
-      return linhaDados(pessoas[k]).concat([false, false, '', '', '', k]);
-    });
+    const linhas = novas.map(function (k) { return linhaDados(pessoas[k]).concat([false, false, '', '', '', k]); });
     aba.getRange(ini, 1, linhas.length, colChave).setValues(linhas);
-    aba.getRange(ini, nDados + 1, linhas.length, 2).insertCheckboxes();   // caixinhas desmarcadas
+    aba.getRange(ini, nDados + 1, linhas.length, 2).insertCheckboxes();
   }
 
-  // Ordem alfabética (as colunas de controle andam junto com a linha).
   const total = aba.getLastRow() - 1;
   if (total > 1) aba.getRange(2, 1, total, colChave).sort({ column: 1, ascending: true });
   if (total > 0) {
-    aba.getRange(2, 4, total, 2).setWrap(true).setVerticalAlignment('top');
-    aba.getRange(2, 6, total, ENTREGA_PRODUTOS.length + 1).setHorizontalAlignment('center');
-    aba.setRowHeights(2, total, 42);   // espaço para a assinatura
+    aba.getRange(2, 2, total, 2).setWrap(true).setVerticalAlignment('top');
+    aba.getRange(2, 4, total, ENTREGA_PRODUTOS.length + 1).setHorizontalAlignment('center');
+    aba.setRowHeights(2, total, 42);
+    // Situação de cada linha (fórmula — recalcula na hora do clique na caixinha).
+    const I = 'RC' + (nDados + 1), P = 'RC' + (nDados + 2), T = 'RC' + nDados;
+    aba.getRange(2, colSit, total, 1).setFormulaR1C1(
+      '=IF(RC1="","",IF(AND(OR(' + I + '=TRUE,' + P + '=TRUE),OR(RC2="—",LEFT(RC2,1)="⚠",' + I + '=TRUE),' +
+      'OR(' + T + '="",' + P + '=TRUE),NOT(ISNUMBER(SEARCH("⚠",' + T + ')))),"verde",' +
+      'IF(OR(' + I + '=TRUE,' + P + '=TRUE),"amarelo","")))');
   }
+  aba.hideColumns(colChave, 2);
+  aplicarCoresEntregas(aba, colChave, colSit);
   Logger.log('Entregas: ' + Object.keys(pessoas).length + ' pessoa(s) com inscrição/pedido pago' +
              (novas.length ? ' (' + novas.length + ' nova(s))' : '') + '.');
+}
+
+/* Cores (formatação condicional — muda na hora do clique):
+   VERDE = recebeu tudo o que tem · AMARELO = falta algo (ou "⚠ comprou mais") · BRANCO = nada entregue.
+   A regra só compara a coluna oculta "situação" com um texto — não depende de vírgula/ponto e vírgula. */
+function aplicarCoresEntregas(aba, colChave, colSit) {
+  let L = '', n = colSit;
+  while (n > 0) { const m = (n - 1) % 26; L = String.fromCharCode(65 + m) + L; n = Math.floor((n - 1) / 26); }
+  const faixa = aba.getRange(2, 1, Math.max(1, aba.getMaxRows() - 1), colChave - 1);
+  aba.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$' + L + '2="verde"')
+      .setBackground('#b7e1cd').setRanges([faixa]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$' + L + '2="amarelo"')
+      .setBackground('#fce8b2').setRanges([faixa]).build()
+  ]);
 }
