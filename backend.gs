@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-entregas-v5'
+    versao: '2026-10-30-entregas-v6'
   });
 }
 
@@ -1578,7 +1578,7 @@ function atualizarEntregas() {
     if (h[1] === 'CPF' && h[2] === 'Telefone') aba.deleteColumns(2, 2);
   }
   aba.getRange(1, 1, 1, cab.length).setValues([cab]);
-  aba.getRange(1, colSit).setValue('situação');
+  aba.getRange(1, colSit).setValue('');
   aba.getRange(1, 1, 1, colSit).setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01').setWrap(true);
   aba.setFrozenRows(1);
   aba.setFrozenColumns(1);
@@ -1636,33 +1636,66 @@ function atualizarEntregas() {
     aba.getRange(2, 2, total, 2).setWrap(true).setVerticalAlignment('top');
     aba.getRange(2, 4, total, ENTREGA_PRODUTOS.length + 1).setHorizontalAlignment('center');
     aba.setRowHeights(2, total, 42);
-    // Situação de cada linha (fórmula — recalcula na hora do clique na caixinha).
-    const I = 'RC' + (nDados + 1), P = 'RC' + (nDados + 2), T = 'RC' + nDados;
-    aba.getRange(2, colSit, total, 1).setFormulaR1C1(
-      '=IF(RC1="","",IF(AND(OR(' + I + '=TRUE,' + P + '=TRUE),OR(RC2="—",LEFT(RC2,1)="⚠",' + I + '=TRUE),' +
-      'OR(' + T + '="",' + P + '=TRUE),NOT(ISNUMBER(SEARCH("⚠",' + T + ')))),"verde",' +
-      'IF(OR(' + I + '=TRUE,' + P + '=TRUE),"amarelo","")))');
   }
   aba.hideColumns(colChave, 2);
-  aplicarCoresEntregas_(aba, colChave, colSit);
+  // Cores: pintadas pelo script (não dependem de fórmula nem do idioma da planilha).
+  aba.setConditionalFormatRules([]);                            // remove regras antigas
+  if (aba.getMaxRows() > 1) aba.getRange(2, colSit, aba.getMaxRows() - 1, 1).clearContent();
+  if (total > 0) pintarLinhasEntregas_(aba, 2, total);
+  instalarTriggerCliqueEntregas_();
   Logger.log('Entregas: ' + Object.keys(pessoas).length + ' pessoa(s) com inscrição/pedido pago' +
              (novas.length ? ' (' + novas.length + ' nova(s))' : '') + '.');
 }
 
-/* Cores (formatação condicional — muda na hora do clique):
-   VERDE = recebeu tudo o que tem · AMARELO = falta algo (ou "⚠ comprou mais") · BRANCO = nada entregue.
-   A regra só compara a coluna oculta "situação" com um texto — não depende de vírgula/ponto e vírgula. */
-/* Peça interna (o "_" no fim esconde do menu Executar). Para atualizar a aba
-   e as cores, rode atualizarEntregas(). */
-function aplicarCoresEntregas_(aba, colChave, colSit) {
-  if (!aba) { atualizarEntregas(); return; }   // rodada sozinha por engano → faz o certo
-  let L = '', n = colSit;
-  while (n > 0) { const m = (n - 1) % 26; L = String.fromCharCode(65 + m) + L; n = Math.floor((n - 1) / 26); }
-  const faixa = aba.getRange(2, 1, Math.max(1, aba.getMaxRows() - 1), colChave - 1);
-  aba.setConditionalFormatRules([
-    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$' + L + '2="verde"')
-      .setBackground('#b7e1cd').setRanges([faixa]).build(),
-    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$' + L + '2="amarelo"')
-      .setBackground('#fce8b2').setRanges([faixa]).build()
-  ]);
+/* CORES DA ABA ENTREGAS (pintadas pelo script, sem fórmula):
+     VERDE   = recebeu tudo o que tem (só inscrição, só produtos, ou os dois)
+     AMARELO = marcou algo mas falta alguma coisa (ou "⚠ comprou mais depois")
+     BRANCO  = nada entregue ainda
+   Ao clicar numa caixinha, o gatilho aoEditarEntregas pinta a linha (~1–2 s). */
+const COR_VERDE = '#b7e1cd', COR_AMARELO = '#fce8b2';
+
+function corDaLinhaEntrega_(r, nDados) {
+  // r = valores da linha (índice 0 = coluna A)
+  if (!String(r[0] || '').trim()) return null;
+  const insc = String(r[1] || ''), total = String(r[nDados - 1] === undefined ? '' : r[nDados - 1]);
+  const inscOk = r[nDados] === true, prodOk = r[nDados + 1] === true;
+  if (!inscOk && !prodOk) return null;
+  const temInsc = insc !== '—' && insc.charAt(0) !== '⚠' && insc.trim() !== '';
+  const temProd = total.trim() !== '';
+  const alerta = total.indexOf('⚠') >= 0;
+  const tudo = (!temInsc || inscOk) && (!temProd || prodOk) && !alerta;
+  return tudo ? COR_VERDE : COR_AMARELO;
+}
+
+/* Pinta as linhas [linhaIni, linhaIni+qtd) da aba Entregas (colunas A até Observações). */
+function pintarLinhasEntregas_(aba, linhaIni, qtd) {
+  const nDados = 3 + ENTREGA_PRODUTOS.length + 1;
+  const ultimaCor = nDados + ENTREGA_CONTROLE.length;          // até "Observações"
+  const v = aba.getRange(linhaIni, 1, qtd, nDados + 2).getValues();
+  const cores = v.map(function (r) {
+    const c = corDaLinhaEntrega_(r, nDados);
+    const linha = []; for (let j = 0; j < ultimaCor; j++) linha.push(c); return linha;
+  });
+  aba.getRange(linhaIni, 1, qtd, ultimaCor).setBackgrounds(cores);
+}
+
+/* Gatilho "ao editar" da planilha: repinta as linhas editadas na aba Entregas. */
+function aoEditarEntregas(e) {
+  try {
+    if (!e || !e.range) return;
+    const aba = e.range.getSheet();
+    if (aba.getName() !== ABA_ENTREGAS) return;
+    const ini = Math.max(2, e.range.getRow());
+    const fim = e.range.getRow() + e.range.getNumRows() - 1;
+    if (fim < ini) return;
+    pintarLinhasEntregas_(aba, ini, fim - ini + 1);
+  } catch (err) { Logger.log('aoEditarEntregas: ' + err); }
+}
+
+/* Instala (uma vez) o gatilho de edição da planilha que pinta a linha no clique. */
+function instalarTriggerCliqueEntregas_() {
+  try {
+    const existe = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'aoEditarEntregas'; });
+    if (!existe) ScriptApp.newTrigger('aoEditarEntregas').forSpreadsheet(SHEET_ID).onEdit().create();
+  } catch (err) { Logger.log('instalarTriggerCliqueEntregas_: ' + err); }
 }
