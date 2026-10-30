@@ -341,7 +341,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-extra'
+    versao: '2026-10-30-extra2'
   });
 }
 
@@ -1540,14 +1540,15 @@ function atualizarEntregas() {
     const base = baseChave(r[c.cpf], r[c.email]);
     const k = chaveDaBase(base);
     if (!pessoas[k]) { migrar[base] = k; migrar[chaveAntigaSha(base)] = k; }
-    return pessoas[k] || (pessoas[k] = { chave: k, nome: String(r[c.nome] || '').trim(), insc: {}, part: [], prod: {} });
+    return pessoas[k] || (pessoas[k] = { chave: k, nome: String(r[c.nome] || '').trim(), insc: {}, part: [], prod: {}, compras: [] });
   }
   function ler(nomeAba, fn) {
     const aba = ss.getSheetByName(nomeAba);
     if (!aba || aba.getLastRow() < 2) return;
     const v = aba.getDataRange().getValues(), h = v[0];
     const c = { nome: h.indexOf('Nome'), email: h.indexOf('Email'), cpf: h.indexOf('CPF'),
-                det: h.indexOf('Itens (detalhe)'), st: h.indexOf('Status Pagamento'), part: h.indexOf('Participantes') };
+                det: h.indexOf('Itens (detalhe)'), st: h.indexOf('Status Pagamento'), part: h.indexOf('Participantes'),
+                data: h.indexOf('Data') };
     for (let i = 1; i < v.length; i++) {
       // Só pagamento aprovado: "Aprovado", "Confirmado (Gratuito)". Fica de fora: Aguardando Pix,
       // Em Análise, Recusado, Cancelado, Estornado (e qualquer "Não aprovado" escrito à mão).
@@ -1564,6 +1565,10 @@ function atualizarEntregas() {
   ler(ABA_PEDIDOS, function (r, c) {
     const p = pessoa(r, c), itens = parseItensDetalhe(r[c.det]);
     Object.keys(itens).forEach(function (k) { p.prod[k] = (p.prod[k] || 0) + itens[k]; });
+    // Histórico de compras (com data/hora) — usado quando não se sabe o que já foi entregue.
+    const d = c.data >= 0 ? r[c.data] : '', t = d instanceof Date ? d.getTime() : 0;
+    const itensTxt = textoItens_({}, itens);
+    if (itensTxt) p.compras.push({ t: t, txt: (t ? Utilities.formatDate(d, 'America/Sao_Paulo', 'dd/MM HH:mm') + ' — ' : '') + itensTxt });
   });
 
   // Layout: Nome | Inscrições | Participantes | produtos… | Total | controles… | chave (oculta) | situação (oculta)
@@ -1637,6 +1642,10 @@ function atualizarEntregas() {
     let linha;
     if (p) {
       linha = linhaDados(p);
+      // Entrega marcada antes desta versão: não se sabe o que já foi entregue → lista as compras.
+      if (foto.pv) foto.pc = p.compras.slice().sort(function (a, b) { return a.t - b.t; })
+                                 .map(function (x) { return x.txt; });
+      else delete foto.pc;
     } else {
       linha = r.slice(0, nDados);
       linha[1] = '⚠ sem inscrição/pedido pago';
@@ -1670,6 +1679,11 @@ function atualizarEntregas() {
     aba.getRange(2, 4, total, ENTREGA_PRODUTOS.length + 1).setHorizontalAlignment('center');
     aba.setRowHeights(2, total, 42);
     aba.getRange(2, nDados + 6, total, 1).setWrap(true).setVerticalAlignment('top').setFontWeight('bold');
+    // Linha mais alta quando o "Comprou depois" tem texto longo (para ler sem clicar).
+    aba.getRange(2, nDados + 6, total, 1).getValues().forEach(function (v, i) {
+      const linhas = String(v[0] || '').split('\n').reduce(function (s, l) { return s + Math.max(1, Math.ceil(l.length / 30)); }, 0);
+      if (linhas > 2) aba.setRowHeight(2 + i, Math.min(300, 18 * linhas + 10));
+    });
   }
   aba.hideColumns(colChave, 2);
   // Cores: pintadas pelo script (não dependem de fórmula nem do idioma da planilha).
@@ -1780,7 +1794,15 @@ function ajustarFoto_(rVisto, foto, nDados) {
 function textoCompraDepois_(rAtual, foto) {
   const q = qtdsDaLinha_(rAtual);
   let txt = textoItens_(foto.i ? sobra_(q.i, foto.i) : {}, foto.p ? sobra_(q.p, foto.p) : {});
-  if (!txt && foto.pv) txt = '⚠ comprou mais depois da entrega — confira os itens';
+  if (!txt && foto.pv) {
+    // Entrega marcada antes desta versão: mostra as compras com data/hora; a(s) feita(s)
+    // depois da hora em "Entregue por / hora" é(são) a(s) que falta entregar.
+    const lista = foto.pc || [];
+    txt = '⚠ comprou mais depois da entrega. Compras (compare com a hora da entrega):' +
+          (lista.length ? '\n' + lista.map(function (x, n) {
+            return '• ' + x + (n === lista.length - 1 && lista.length > 1 ? '  ← mais recente' : '');
+          }).join('\n') : ' veja a aba Pedidos');
+  }
   if (txt && foto.x) {
     const deNovo = textoItens_(foto.i ? sobra_(q.i, foto.x.i || {}) : {}, foto.p ? sobra_(q.p, foto.x.p || {}) : {});
     if (deNovo) txt += '\n⚠ comprou DE NOVO depois do extra: ' + deNovo;
