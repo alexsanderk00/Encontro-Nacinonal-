@@ -345,7 +345,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-31-esgota-fem-g'
+    versao: '2026-10-31-pix-3min'
   });
 }
 
@@ -639,9 +639,30 @@ function atualizarPixNaPlanilha(paymentId, statusMp) {
 
 /**
  * UTILITÁRIO/TRIGGER — re-verifica todos os Pix pendentes nas duas abas.
- * É chamada automaticamente a cada 10 min (ver instalarTriggerPix).
+ * O gatilho dispara a cada 1 min (ver instalarTriggerPix), mas o trabalho roda
+ * a cada ~3 min. Para não estourar as cotas diárias do Apps Script (tempo de
+ * gatilhos ~90 min/dia e chamadas externas em conta Gmail comum):
+ *   - de dia, confere os Pix a cada ~3 min; de madrugada (23h–7h), a cada ~10 min;
+ *   - cartões "Em Análise" são conferidos a cada 5 min;
+ *   - a aba Entregas só é refeita quando algum pagamento mudou aqui — ou, por
+ *     segurança, a cada 30 min. (Cada pagamento aprovado já agenda a atualização
+ *     dela sozinho, ~30 s depois.)
  */
 function reverificarPixPendentes() {
+  const hora = Number(Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'H'));
+  const cache = CacheService.getScriptCache();
+  try {
+    if (cache.get('pix_conferido')) return;                       // rodou há menos de ~3 min
+    // Se a rodada anterior ainda está rodando (Mercado Pago lento), pula esta.
+    if (cache.get('reverificando')) return;
+    cache.put('pix_conferido', '1', (hora >= 23 || hora < 7) ? 590 : 170);
+    cache.put('reverificando', '1', 240);
+  } catch (e) { Logger.log('cache: ' + e); }
+  try { reverificarPixPendentes_(cache); } finally { try { cache.remove('reverificando'); } catch (e) {} }
+}
+
+function reverificarPixPendentes_(cache) {
+  let mudou = 0;
   getAbasPagamento().forEach(function (aba) {
     const sheet = aba.sheet;
     const colStatus = acharColuna(sheet, 'Status Pagamento');
@@ -660,10 +681,14 @@ function reverificarPixPendentes() {
 
       const mp = fetchPaymentStatus(pid);
       if (!mp) continue;
+      // A página do comprador pode ter aprovado este Pix enquanto consultávamos:
+      // relê a célula para não gravar de novo nem mandar e-mail em dobro.
+      if (sheet.getRange(i + 1, colStatus).getValue() !== 'Aguardando Pix') continue;
       const inscrito = { nome: data[i][colNome - 1], email: data[i][colEmail - 1] };
 
       if (mp.status === 'approved') {
         sheet.getRange(i + 1, colStatus).setValue('Aprovado');
+        mudou++;
         const items = parseIngressosStr(data[i][colItens - 1]);
         tryOrLog(function () {
           sendConfirmationEmail(inscrito, items, data[i][colTotal - 1], pid, aba.ehProduto);
@@ -674,22 +699,30 @@ function reverificarPixPendentes() {
       }
     }
   });
-  // Na mesma rotina: cartões "Em Análise" que o Mercado Pago já decidiu.
-  tryOrLog(function () { processarEmAnalise_(true); }, 'reverificar em análise');
-  // E mantém a aba Entregas em dia (balcão do evento).
-  atualizarEntregasAgora();
+  // Cartões "Em Análise" que o Mercado Pago já decidiu (a cada 5 min).
+  if (!cache.get('em_analise_feito')) {
+    cache.put('em_analise_feito', '1', 270);
+    tryOrLog(function () { mudou += processarEmAnalise_(true); }, 'reverificar em análise');
+  }
+  // Aba Entregas (balcão): se algo foi aprovado aqui, agenda (~30 s, com nova
+  // tentativa se a trava estiver ocupada por uma venda); e, por segurança, a cada 30 min.
+  if (mudou) agendarEntregas();
+  else if (!cache.get('entregas_completa')) {
+    cache.put('entregas_completa', '1', 1740);
+    atualizarEntregasAgora();
+  }
 }
 
 /**
- * Instala o gatilho que roda reverificarPixPendentes a cada 10 minutos.
- * Rode esta função UMA VEZ no editor do Apps Script.
+ * Instala o gatilho que roda reverificarPixPendentes a cada 1 minuto.
+ * Rode esta função UMA VEZ no editor do Apps Script (troca o gatilho antigo).
  */
 function instalarTriggerPix() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'reverificarPixPendentes') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('reverificarPixPendentes').timeBased().everyMinutes(10).create();
-  Logger.log('✓ Trigger instalado: reverificarPixPendentes a cada 10 minutos.');
+  ScriptApp.newTrigger('reverificarPixPendentes').timeBased().everyMinutes(1).create();
+  Logger.log('✓ Trigger instalado: reverificarPixPendentes a cada 1 minuto.');
 }
 
 /**
@@ -1328,7 +1361,7 @@ function processarCancelamentos_(aplicar) {
  *   atualizarEmAnalise()  → atualiza a planilha e manda o e-mail certo
  *                            (confirmação se aprovou; "não aprovado" se recusou).
  *
- * Depois de publicada, a rotina automática de 10 em 10 minutos
+ * Depois de publicada, a rotina automática (a cada 1 min; Em Análise a cada 5 min)
  * (reverificarPixPendentes) também atualiza essas linhas sozinha.
  * ═══════════════════════════════════════════════════════════════════ */
 function consultarEmAnalise() { processarEmAnalise_(false); }
@@ -1377,6 +1410,7 @@ function processarEmAnalise_(aplicar) {
   Logger.log('RESUMO — pagaram: ' + resumo.aprovado + ' | não pagaram (recusado/cancelado): ' + resumo.recusado +
              ' | ainda em análise: ' + resumo.aguardando + ' | outros: ' + resumo.outro +
              (aplicar ? '' : '   (rode atualizarEmAnalise() para gravar na planilha)'));
+  return aplicar ? resumo.aprovado : 0;
 }
 
 
@@ -1448,7 +1482,7 @@ function conviteRecusados_(enviar) {
  * "Extra: assinatura". (Uma coluna oculta "foto" guarda o que ela tinha quando
  * cada caixinha foi marcada — é assim que o script sabe o que é novo.)
  *
- * AUTOMÁTICA: roda junto da rotina de 10 em 10 minutos. Também dá para
+ * AUTOMÁTICA: ~30 s após cada pagamento aprovado e, por segurança, a cada 30 min. Também dá para
  * rodar na mão: atualizarEntregas().
  * SEGURA: só reescreve as colunas de dados. O que vocês marcarem/escreverem
  * nas colunas de controle nunca é apagado. Pessoa nova entra; a lista fica
@@ -1506,7 +1540,7 @@ function agendarEntregas() {
     cache.put('entregas_agendada', '1', 90);
     ScriptApp.newTrigger('atualizarEntregasGatilho').timeBased().after(30 * 1000).create();
   } catch (e) {
-    Logger.log('agendarEntregas: ' + e + ' — a rotina de 10 min atualiza.');
+    Logger.log('agendarEntregas: ' + e + ' — a rotina de 30 min atualiza.');
   }
 }
 
@@ -1518,18 +1552,20 @@ function atualizarEntregasGatilho() {
     });
     CacheService.getScriptCache().remove('entregas_agendada');
   } catch (e) { Logger.log('limpar gatilho entregas: ' + e); }
-  atualizarEntregasAgora();
+  // Trava ocupada por uma venda → tenta de novo daqui a ~30 s (erro de verdade não repete).
+  if (atualizarEntregasAgora() === 'ocupado') agendarEntregas();
 }
 
 /* Atualiza a aba Entregas com a trava do script (evita duas atualizações ao mesmo
    tempo duplicarem linhas). SÓ chamar fora de requisições de pagamento (gatilho,
-   rotina de 10 min, editor) — o Apps Script não é reentrante: chamar isto dentro do
+   rotina de 30 min, editor) — o Apps Script não é reentrante: chamar isto dentro do
    bloco travado da loja (doPost) esperaria 15 s e desistiria. Nunca lança erro. */
 function atualizarEntregasAgora() {
   try {
     const trava = LockService.getScriptLock();
-    if (!trava.tryLock(15000)) { Logger.log('Entregas: ocupado — próxima rodada atualiza.'); return; }
+    if (!trava.tryLock(15000)) { Logger.log('Entregas: ocupado — tenta de novo depois.'); return 'ocupado'; }
     try { atualizarEntregas(); } finally { trava.releaseLock(); }
+    return 'ok';
   } catch (e) {
     Logger.log('ERRO atualizarEntregasAgora: ' + e);
   }
