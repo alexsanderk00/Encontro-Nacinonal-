@@ -365,7 +365,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-31-recontagem'
+    versao: '2026-10-31-troca'
   });
 }
 
@@ -2180,5 +2180,76 @@ function diagnosticarPessoa_(nome) {
       });
       Logger.log('[Entregas linha ' + (i + 1) + '] ' + partes.join(' | '));
     }
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * TROCA DE INSCRIÇÕES POR PRODUTOS (ex.: pagou 2 inscrições e levou 2 camisetas)
+ *   simularTrocaErnesto() → só mostra no Registro o que seria feito
+ *   aplicarTrocaErnesto() → faz a troca:
+ *     - a linha da inscrição (Inscrições) passa a "Trocado por produtos" (sai da
+ *       aba Entregas, da Presença e da contagem de inscritos);
+ *     - entra uma linha em Pedidos com os produtos, status "Confirmado (troca de
+ *       inscrição)", com o mesmo valor pago (o dinheiro não some do caixa) e os
+ *       mesmos dados da pessoa (cai na mesma linha da aba Entregas);
+ *     - o estoque do site desconta os produtos na hora.
+ *   Só age se achar UMA inscrição paga da pessoa com exatamente essa quantidade.
+ * ═══════════════════════════════════════════════════════════════════ */
+function simularTrocaErnesto() { trocarInscricoesPorProdutos_('Ernesto Lima Gil', 2, 'Camiseta Feminina [M] ×1 (R$ 0,00), Camiseta Masculina [G] ×1 (R$ 0,00)', false); }
+function aplicarTrocaErnesto() { trocarInscricoesPorProdutos_('Ernesto Lima Gil', 2, 'Camiseta Feminina [M] ×1 (R$ 0,00), Camiseta Masculina [G] ×1 (R$ 0,00)', true); }
+
+function trocarInscricoesPorProdutos_(nome, qtdInscricoes, itensProdutos, aplicar) {
+  const alvo = normTxt_(nome).split(' ');
+  const bate = function (v) { const n = normTxt_(v); return alvo.every(function (p) { return n.indexOf(p) >= 0; }); };
+  const trava = LockService.getScriptLock();
+  if (aplicar && !trava.tryLock(30000)) { Logger.log('Ocupado (venda em andamento). Tente de novo.'); return; }
+  let feito = false;
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const ins = ss.getSheetByName(ABA_INSCRICOES), ped = ss.getSheetByName(ABA_PEDIDOS);
+    const v = ins.getDataRange().getValues(), h = v[0];
+    const col = function (t) { return h.indexOf(t); };
+    const candidatas = [];
+    for (let i = 1; i < v.length; i++) {
+      if (!bate(v[i][col('Nome')])) continue;
+      const st = String(v[i][col('Status Pagamento')] || '').trim();
+      const itens = parseItensDetalhe(v[i][col('Itens (detalhe)')]);
+      const qtd = Object.keys(itens).reduce(function (s, k) { return s + itens[k]; }, 0);
+      Logger.log('[Inscrições linha ' + (i + 1) + '] ' + v[i][col('Nome')] + ' | ' + st + ' | ' + v[i][col('Itens (detalhe)')] +
+                 ' | R$ ' + v[i][col('Total Bruto (R$)')]);
+      if (/^(Aprovado|Confirmado)\b/i.test(st) && qtd === qtdInscricoes) candidatas.push(i);
+    }
+    if (candidatas.length !== 1) {
+      Logger.log('NÃO FIZ NADA: esperava 1 inscrição paga com ' + qtdInscricoes + ' pessoas e achei ' + candidatas.length + '.');
+      return;
+    }
+    const i = candidatas[0], r = v[i];
+    const hp = ped.getRange(1, 1, 1, ped.getLastColumn()).getValues()[0];
+    const valores = {
+      'Data': new Date(), 'Nome': r[col('Nome')], 'Email': r[col('Email')], 'CPF': r[col('CPF')],
+      'Telefone': r[col('Telefone')],
+      'Observações': 'Troca de ' + qtdInscricoes + ' inscrição(ões) (Inscrições linha ' + (i + 1) + ', já paga)',
+      'Itens (detalhe)': itensProdutos,
+      'Qtd Total': Object.keys(parseItensDetalhe(itensProdutos)).reduce(function (s, k) { return s + parseItensDetalhe(itensProdutos)[k]; }, 0),
+      'Total Bruto (R$)': r[col('Total Bruto (R$)')], 'Forma de Pagamento': r[col('Forma de Pagamento')],
+      'Taxa Estimada (%)': r[col('Taxa Estimada (%)')], 'Taxa Estimada (R$)': r[col('Taxa Estimada (R$)')],
+      'Valor Líquido (R$)': r[col('Valor Líquido (R$)')],
+      'Status Pagamento': 'Confirmado (troca de inscrição)', 'ID Pagamento': r[col('ID Pagamento')]
+    };
+    const linha = hp.map(function (t) { return valores[t] === undefined ? '' : valores[t]; });
+    Logger.log((aplicar ? 'FEITO: ' : 'SIMULAÇÃO — faria: ') + 'Inscrições linha ' + (i + 1) + ' → "Trocado por produtos"; ' +
+               'nova linha em Pedidos: ' + itensProdutos + ' (R$ ' + valores['Total Bruto (R$)'] + ')');
+    if (!aplicar) { Logger.log('(rode aplicarTrocaErnesto() para gravar)'); return; }
+    ped.appendRow(linha);
+    SpreadsheetApp.flush();
+    ins.getRange(i + 1, col('Status Pagamento') + 1).setValue('Trocado por produtos');
+    feito = true;
+  } finally {
+    if (aplicar) trava.releaseLock();
+  }
+  if (feito) {
+    try { CacheService.getScriptCache().remove('estoque_publico'); } catch (e) {}   // site vê o estoque novo já
+    atualizarEntregasAgora();
   }
 }
