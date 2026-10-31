@@ -2131,3 +2131,54 @@ function padronizarNomes_(gravar) {
   }
   if (gravar && total) atualizarEntregasAgora();   // reordena a lista do balcão (pega a trava de novo)
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * DIAGNÓSTICO DE UMA PESSOA (só lê, não altera nada)
+ *   Mostra no Registro todas as linhas da pessoa em Inscrições e Pedidos
+ *   (data, status, itens, ID e o status atual no Mercado Pago) e a linha
+ *   dela na aba Entregas. Para outra pessoa: troque o nome em diagnosticoPessoa().
+ * ═══════════════════════════════════════════════════════════════════ */
+function diagnosticoPessoa() { diagnosticarPessoa_('Kleber Caldas'); }
+
+function diagnosticarPessoa_(nome) {
+  const alvo = normTxt_(nome).split(' ');
+  const bate = function (v) { const n = normTxt_(v); return alvo.every(function (p) { return n.indexOf(p) >= 0; }); };
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  [ABA_INSCRICOES, ABA_PEDIDOS].forEach(function (nomeAba) {
+    const aba = ss.getSheetByName(nomeAba);
+    if (!aba || aba.getLastRow() < 2) return;
+    const v = aba.getDataRange().getValues(), h = v[0];
+    const c = { nome: h.indexOf('Nome'), data: h.indexOf('Data'), st: h.indexOf('Status Pagamento'),
+                det: h.indexOf('Itens (detalhe)'), id: h.indexOf('ID Pagamento'), forma: h.indexOf('Forma de Pagamento') };
+    let achou = 0;
+    for (let i = 1; i < v.length; i++) {
+      if (!bate(v[i][c.nome])) continue;
+      achou++;
+      const id = String(v[i][c.id] || '').trim();
+      let mp = '';
+      if (id && /^\d+$/.test(id)) {
+        const r = fetchPaymentStatus(id);
+        mp = r && r.status ? ' | Mercado Pago agora: ' + r.status + (r.status_detail ? ' (' + r.status_detail + ')' : '') : ' | Mercado Pago: não consegui consultar';
+      }
+      const d = v[i][c.data];
+      Logger.log('[' + nomeAba + ' linha ' + (i + 1) + '] ' + v[i][c.nome] +
+                 ' | ' + (d instanceof Date ? Utilities.formatDate(d, 'America/Sao_Paulo', 'dd/MM HH:mm') : d) +
+                 ' | status planilha: ' + v[i][c.st] + ' | ' + v[i][c.forma] + ' | itens: ' + v[i][c.det] + ' | ID ' + id + mp);
+    }
+    if (!achou) Logger.log('[' + nomeAba + '] nenhuma linha com "' + nome + '"');
+  });
+  const ent = ss.getSheetByName(ABA_ENTREGAS);
+  if (ent && ent.getLastRow() > 1) {
+    const v = ent.getDataRange().getValues(), h = v[0];
+    for (let i = 1; i < v.length; i++) {
+      if (!bate(v[i][0])) continue;
+      const partes = [];
+      h.forEach(function (t, j) {
+        const x = v[i][j];
+        if (t && t !== 'chave' && x !== '' && x !== false) partes.push(t + ': ' + String(x).replace(/\n/g, ' / '));
+      });
+      Logger.log('[Entregas linha ' + (i + 1) + '] ' + partes.join(' | '));
+    }
+  }
+}
