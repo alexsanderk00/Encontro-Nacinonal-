@@ -62,6 +62,15 @@ const ESTOQUE_INICIAL = {
 // Itens tirados de venda à mão (aparecem "Esgotado" e a compra é recusada),
 // mesmo que ainda sobre alguma unidade. Para voltar a vender, tire daqui e reimplante.
 const ESGOTADO_MANUAL = ['Camiseta Feminina G'];
+// Recontagem física: a partir de RECONTAGEM_EM, o site mostra estes números menos o
+// que for vendido/reservado DEPOIS desse horário. (Resumo continua usando ESTOQUE_INICIAL.)
+const RECONTAGEM_EM = new Date('2026-10-31T09:51:00-03:00');
+const ESTOQUE_RECONTAGEM = {
+  'Camiseta Masculina P': 14, 'Camiseta Masculina M': 13,
+  'Camiseta Masculina G': 31, 'Camiseta Masculina GG': 23,
+  'Camiseta Feminina P': 7,  'Camiseta Feminina M': 8,
+  'Boné': 71, 'Velame': 82, 'Garrafa': 95
+};
 const TAMANHOS_PRODUTOS = {
   'Camiseta Masculina': ['P', 'M', 'G', 'GG'],
   'Camiseta Feminina':  ['P', 'M', 'G']
@@ -166,23 +175,34 @@ function chaveEstoque(item) {
 
 /* Quanto resta de cada item: estoque − (vendido + reservado) na aba Pedidos. */
 function estoqueRestante() {
-  const usados = {};
+  const usados = {}, usadosDepois = {};
   const aba = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ABA_PEDIDOS);
   if (aba && aba.getLastRow() > 1) {
     const dados = aba.getDataRange().getValues();
     const cDet = dados[0].indexOf('Itens (detalhe)'), cSt = dados[0].indexOf('Status Pagamento');
+    const cData = dados[0].indexOf('Data');
     if (cDet >= 0 && cSt >= 0) {
       for (let i = 1; i < dados.length; i++) {
         const st = String(dados[i][cSt] || '');
         if (!STATUS_QUE_RESERVAM.some(function (x) { return st.indexOf(x) >= 0; })) continue;
         const itens = parseItensDetalhe(dados[i][cDet]);
-        Object.keys(itens).forEach(function (k) { usados[k] = (usados[k] || 0) + itens[k]; });
+        const d = cData >= 0 ? dados[i][cData] : null;
+        // Sem data legível, ou Pix/cartão ainda pendente → conta como venda nova
+        // (mais seguro: não vende a mais; se o Pix expirar, a peça volta sozinha).
+        const pend = st.indexOf('Aguardando Pix') >= 0 || st.indexOf('Em Análise') >= 0;
+        const depois = pend || !(d instanceof Date) || d.getTime() >= RECONTAGEM_EM.getTime();
+        Object.keys(itens).forEach(function (k) {
+          usados[k] = (usados[k] || 0) + itens[k];
+          if (depois) usadosDepois[k] = (usadosDepois[k] || 0) + itens[k];
+        });
       }
     }
   }
   const restante = {};
   Object.keys(ESTOQUE_INICIAL).forEach(function (k) {
-    restante[k] = Math.max(0, ESTOQUE_INICIAL[k] - (usados[k] || 0));
+    restante[k] = k in ESTOQUE_RECONTAGEM
+      ? Math.max(0, ESTOQUE_RECONTAGEM[k] - (usadosDepois[k] || 0))
+      : Math.max(0, ESTOQUE_INICIAL[k] - (usados[k] || 0));
   });
   ESGOTADO_MANUAL.forEach(function (k) { if (k in restante) restante[k] = 0; });
   return restante;
@@ -345,7 +365,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-31-pix-3min'
+    versao: '2026-10-31-recontagem'
   });
 }
 
@@ -1699,6 +1719,7 @@ function atualizarEntregas() {
       linha[1] = '⚠ sem inscrição/pedido pago';
       for (let j = 3; j < nDados; j++) linha[j] = '';
     }
+    if (p) completarFotoVazia_(linha, foto);
     extras.push([!r[colChave - 1] ? r[nDados + 5] : p ? textoCompraDepois_(linha, foto) : '']);
     fotos.push([r[colChave - 1] ? fotoTexto_(foto) : r[colSit - 1]]);
     return linha;
@@ -1950,6 +1971,19 @@ function ajustarFoto_(rVisto, foto, nDados) {
   return foto;
 }
 /* Texto da coluna "Comprou depois": o que há agora além do que já foi entregue. */
+/* Caixinha marcada quando a linha ainda não mostrava nada daquela parte (ex.: o
+   balcão entregou a camisa e marcou antes de o Pix aparecer na planilha): a foto
+   ficou vazia e acusaria tudo como "comprou depois". Foto vazia = ainda não
+   fotografada → usa o que a linha mostra agora (a 1ª vez que aparecer algo). */
+function completarFotoVazia_(rAtual, foto) {
+  const q = qtdsDaLinha_(rAtual);
+  const vazio = function (o) { return !o || Object.keys(o).length === 0; };
+  if (foto.i && vazio(foto.i)) foto.i = q.i;
+  if (foto.p && vazio(foto.p) && !foto.pv) foto.p = q.p;
+  if (foto.x && vazio(foto.x.i) && vazio(foto.x.p)) foto.x = { i: foto.i ? q.i : {}, p: foto.p ? q.p : {} };
+  return foto;
+}
+
 function textoCompraDepois_(rAtual, foto) {
   const q = qtdsDaLinha_(rAtual);
   let txt = textoItens_(foto.i ? sobra_(q.i, foto.i) : {}, foto.p ? sobra_(q.p, foto.p) : {});
@@ -1981,7 +2015,7 @@ function atualizarExtraLinhas_(aba, ini, qtd) {
     const txts = [], fotos = [];
     v.forEach(function (r) {
       if (!r[colChave - 1]) { txts.push([r[nDados + 5]]); fotos.push([r[colFoto - 1]]); return; }
-      const foto = ajustarFoto_(r, lerFoto_(r[colFoto - 1]), nDados);
+      const foto = completarFotoVazia_(r, ajustarFoto_(r, lerFoto_(r[colFoto - 1]), nDados));
       const t = textoCompraDepois_(r, foto), f = fotoTexto_(foto);
       if (t !== String(r[nDados + 5] || '') || f !== String(r[colFoto - 1] || '')) mudou = true;
       txts.push([t]); fotos.push([f]);
