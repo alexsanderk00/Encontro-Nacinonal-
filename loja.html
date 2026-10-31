@@ -659,7 +659,12 @@
         const p = rowId.split('|');
         return PRODUTOS[p[0]].name + (p[1] ? ' ' + p[1] : '');
       }
+      // Tirados de venda à mão (mostra "Esgotado" mesmo antes de o servidor responder).
+      // O servidor também recusa a compra (ESGOTADO_MANUAL no backend.gs).
+      const ESGOTADO_MANUAL = ['Camiseta Feminina G'];
       function aplicarEstoque(estoque) {
+        estoque = Object.assign({}, estoque);
+        ESGOTADO_MANUAL.forEach(function (k) { estoque[k] = 0; });
         let mudou = false;
         Object.keys(controles).forEach(function (rowId) {
           const resta = estoque[chaveDoRow(rowId)];
@@ -686,6 +691,7 @@
         if (mudou) updateOrder();
       }
       function carregarEstoque() {
+        aplicarEstoque({});
         fetch(CONFIG.BACKEND_URL + '?action=estoque')
           .then(function (r) { return r.json(); })
           .then(function (d) { if (d && d.estoque) aplicarEstoque(d.estoque); })

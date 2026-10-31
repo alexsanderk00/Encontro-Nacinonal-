@@ -59,6 +59,9 @@ const ESTOQUE_INICIAL = {
   'Camiseta Feminina G': 5,
   'Velame': 100, 'Garrafa': 236, 'Boné': 100, 'Moeda': 120
 };
+// Itens tirados de venda à mão (aparecem "Esgotado" e a compra é recusada),
+// mesmo que ainda sobre alguma unidade. Para voltar a vender, tire daqui e reimplante.
+const ESGOTADO_MANUAL = ['Camiseta Feminina G'];
 const TAMANHOS_PRODUTOS = {
   'Camiseta Masculina': ['P', 'M', 'G', 'GG'],
   'Camiseta Feminina':  ['P', 'M', 'G']
@@ -181,6 +184,7 @@ function estoqueRestante() {
   Object.keys(ESTOQUE_INICIAL).forEach(function (k) {
     restante[k] = Math.max(0, ESTOQUE_INICIAL[k] - (usados[k] || 0));
   });
+  ESGOTADO_MANUAL.forEach(function (k) { if (k in restante) restante[k] = 0; });
   return restante;
 }
 
@@ -341,7 +345,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-30-presenca'
+    versao: '2026-10-31-esgota-fem-g'
   });
 }
 
