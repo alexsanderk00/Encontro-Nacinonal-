@@ -62,8 +62,8 @@ const ESTOQUE_INICIAL = {
 // Itens tirados de venda à mão (aparecem "Esgotado" e a compra é recusada),
 // mesmo que ainda sobre alguma unidade. Para voltar a vender, tire daqui e reimplante.
 const ESGOTADO_MANUAL = ['Camiseta Feminina G'];
-// Recontagem física: a partir de RECONTAGEM_EM, o estoque (site e "Restante" do Resumo) é
-// estes números menos o que for vendido/reservado DEPOIS desse horário.
+// Recontagem física: a partir de RECONTAGEM_EM, o estoque (site e "Livre para vender" do Resumo) é
+// estes números menos PAGOS_NA_CONTAGEM e o que for vendido/reservado DEPOIS desse horário.
 const RECONTAGEM_EM = new Date('2026-11-03T11:01:00-03:00');
 const ESTOQUE_RECONTAGEM = {
   'Camiseta Masculina P': 11, 'Camiseta Masculina M': 18,
@@ -71,6 +71,12 @@ const ESTOQUE_RECONTAGEM = {
   'Camiseta Feminina P': 8,  'Camiseta Feminina M': 10,
   'Boné': 70, 'Velame': 83, 'Moeda': 104,
   'Garrafa': 99                 // 65 verdes + 34 pretas (a loja vende "Garrafa" sem cor)
+};
+// Pagos e ainda não retirados que estavam na prateleira nessa contagem (conferirEstoque de
+// 03/11): já têm dono, então não são oferecidos. Número fixo: a retirada não muda o estoque.
+const PAGOS_NA_CONTAGEM = {
+  'Camiseta Masculina P': 1, 'Camiseta Masculina G': 2, 'Camiseta Masculina GG': 2,
+  'Camiseta Feminina M': 1, 'Garrafa': 2, 'Boné': 3, 'Moeda': 2
 };
 const TAMANHOS_PRODUTOS = {
   'Camiseta Masculina': ['P', 'M', 'G', 'GG'],
@@ -202,7 +208,7 @@ function estoqueRestante() {
   const restante = {};
   Object.keys(ESTOQUE_INICIAL).forEach(function (k) {
     restante[k] = k in ESTOQUE_RECONTAGEM
-      ? Math.max(0, ESTOQUE_RECONTAGEM[k] - (usadosDepois[k] || 0))
+      ? Math.max(0, ESTOQUE_RECONTAGEM[k] - (PAGOS_NA_CONTAGEM[k] || 0) - (usadosDepois[k] || 0))
       : Math.max(0, ESTOQUE_INICIAL[k] - (usados[k] || 0));
   });
   ESGOTADO_MANUAL.forEach(function (k) { if (k in restante) restante[k] = 0; });
@@ -366,7 +372,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-11-03-recontagem'
+    versao: '2026-11-03-livre-venda'
   });
 }
 
@@ -1036,7 +1042,7 @@ function gerarResumo() {
 
   // ── PRODUTOS ──
   linhas.push(['PRODUTOS', '', '', '', '']);
-  linhas.push(['Produto / Tamanho', 'Vendidos', 'Estoque inicial', 'Restante', 'Arrecadado (R$)']);
+  linhas.push(['Produto / Tamanho', 'Vendidos', 'Estoque inicial', 'Livre para vender', 'Arrecadado (R$)']);
   const prodOrdem = [
     { nome: 'Camiseta Masculina', tams: ['P', 'M', 'G', 'GG'] },
     { nome: 'Camiseta Feminina',  tams: ['P', 'M', 'G'] },
