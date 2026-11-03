@@ -2499,3 +2499,69 @@ function conferirEstoque() {
   });
   Logger.log('✓ Aba "' + ABA_CONFERENCIA + '" atualizada.');
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * ESTORNOS FEITOS NO MERCADO PAGO
+ *   A rotina automática só reconfere Pix e cartões pendentes: uma linha "Aprovado"
+ *   estornada depois continua "Aprovado" na planilha e contando como venda.
+ *   simularEstornos() → só lista no Registro as linhas nessa situação
+ *   corrigirEstornos() → muda o status dessas linhas para "Estornado" (sem enviar e-mail)
+ * ═══════════════════════════════════════════════════════════════════ */
+function simularEstornos() { conferirEstornos_(false); }
+function corrigirEstornos() { conferirEstornos_(true); }
+
+function conferirEstornos_(gravar) {
+  const inicio = Date.now(), achados = [];
+  let conferidas = 0, falhas = 0, interrompido = false;
+  getAbasPagamento().forEach(function (aba) {
+    const sheet = aba.sheet;
+    const c = { st: acharColuna(sheet, 'Status Pagamento'), id: acharColuna(sheet, 'ID Pagamento'),
+                nome: acharColuna(sheet, 'Nome'), det: acharColuna(sheet, 'Itens (detalhe)') };
+    if (!c.st || !c.id) return;
+    const v = sheet.getDataRange().getValues();
+    for (let i = 1; i < v.length; i++) {
+      if (String(v[i][c.st - 1] || '').trim() !== 'Aprovado') continue;
+      const id = String(v[i][c.id - 1] || '').trim();
+      if (!/^\d+$/.test(id)) continue;
+      if (Date.now() - inicio > 300000) { interrompido = true; return; }   // limite do Apps Script: 6 min
+      conferidas++;
+      const mp = fetchPaymentStatus(id);
+      if (!mp || typeof mp.status !== 'string') { falhas++; Logger.log('? Não consegui consultar: ' + sheet.getName() + ' linha ' + (i + 1) + ' — ID ' + id); continue; }
+      const rotulo = sheet.getName() + ' linha ' + (i + 1) + ': ' + v[i][c.nome - 1] + ' — ' + v[i][c.det - 1] + ' — ID ' + id;
+      if (mp.status === 'refunded' || mp.status === 'charged_back') {
+        achados.push({ sheet: sheet, linha: i + 1, id: id, col: c, status: mp.status });
+        Logger.log('⚠ ESTORNADO (' + mp.status + ') → ' + rotulo);
+      } else if (mp.status !== 'approved') {
+        Logger.log('⚠ Mercado Pago diz "' + mp.status + '" (confira, não altero) → ' + rotulo);
+      } else if (Number(mp.transaction_amount_refunded) > 0) {
+        Logger.log('⚠ Estorno PARCIAL de R$ ' + mp.transaction_amount_refunded + ' (confira, não altero) → ' + rotulo);
+      }
+    }
+  });
+  Logger.log('Conferidas ' + conferidas + ' linha(s) "Aprovado" | estornadas: ' + achados.length + ' | sem resposta: ' + falhas +
+             (interrompido ? ' | PAROU NO LIMITE DE TEMPO: rode de novo' : ''));
+  if (!gravar || !achados.length) {
+    if (!gravar && achados.length) Logger.log('(rode corrigirEstornos para gravar)');
+    return;
+  }
+  const trava = LockService.getScriptLock();
+  if (!trava.tryLock(30000)) { Logger.log('Ocupado (venda em andamento). Nada gravado; tente de novo.'); return; }
+  let gravadas = 0;
+  try {
+    achados.forEach(function (a) {
+      const st = a.sheet.getRange(a.linha, a.col.st), id = String(a.sheet.getRange(a.linha, a.col.id).getValue()).trim();
+      if (id !== a.id || String(st.getValue()).trim() !== 'Aprovado') {   // a linha mudou durante a consulta
+        Logger.log('Linha ' + a.linha + ' de ' + a.sheet.getName() + ' mudou; não alterei.');
+        return;
+      }
+      st.setValue('Estornado');
+      gravadas++;
+    });
+  } finally { trava.releaseLock(); }
+  Logger.log('✓ Marcadas como "Estornado": ' + gravadas);
+  if (gravadas) {
+    try { CacheService.getScriptCache().remove('estoque_publico'); } catch (e) {}
+    atualizarEntregasAgora();
+  }
+}
