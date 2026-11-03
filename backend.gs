@@ -62,14 +62,15 @@ const ESTOQUE_INICIAL = {
 // Itens tirados de venda à mão (aparecem "Esgotado" e a compra é recusada),
 // mesmo que ainda sobre alguma unidade. Para voltar a vender, tire daqui e reimplante.
 const ESGOTADO_MANUAL = ['Camiseta Feminina G'];
-// Recontagem física: a partir de RECONTAGEM_EM, o site mostra estes números menos o
-// que for vendido/reservado DEPOIS desse horário. (Resumo continua usando ESTOQUE_INICIAL.)
-const RECONTAGEM_EM = new Date('2026-10-31T09:51:00-03:00');
+// Recontagem física: a partir de RECONTAGEM_EM, o estoque (site e "Restante" do Resumo) é
+// estes números menos o que for vendido/reservado DEPOIS desse horário.
+const RECONTAGEM_EM = new Date('2026-11-03T11:01:00-03:00');
 const ESTOQUE_RECONTAGEM = {
-  'Camiseta Masculina P': 14, 'Camiseta Masculina M': 13,
-  'Camiseta Masculina G': 31, 'Camiseta Masculina GG': 23,
-  'Camiseta Feminina P': 7,  'Camiseta Feminina M': 8,
-  'Boné': 71, 'Velame': 82, 'Garrafa': 95
+  'Camiseta Masculina P': 11, 'Camiseta Masculina M': 18,
+  'Camiseta Masculina G': 22, 'Camiseta Masculina GG': 23,
+  'Camiseta Feminina P': 8,  'Camiseta Feminina M': 10,
+  'Boné': 70, 'Velame': 83, 'Moeda': 104,
+  'Garrafa': 99                 // 65 verdes + 34 pretas (a loja vende "Garrafa" sem cor)
 };
 const TAMANHOS_PRODUTOS = {
   'Camiseta Masculina': ['P', 'M', 'G', 'GG'],
@@ -365,7 +366,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-11-03-faltantes'
+    versao: '2026-11-03-recontagem'
   });
 }
 
@@ -1045,6 +1046,7 @@ function gerarResumo() {
     { nome: 'Moeda',   tams: null }
   ];
   var totalProdVal = 0;
+  const restanteAtual = estoqueRestante();
   prodOrdem.forEach(function (p) {
     const preco = PRECOS_PRODUTOS[p.nome] || 0;
     if (p.tams) {
@@ -1054,14 +1056,14 @@ function gerarResumo() {
         const inicial = ESTOQUE_INICIAL[chave] || 0;
         const arrecad = vendido * preco;
         totalProdVal += arrecad;
-        linhas.push([chave, vendido, inicial, inicial - vendido, arrecad]);
+        linhas.push([chave, vendido, inicial, restanteAtual[chave], arrecad]);
       });
     } else {
       const vendido = vendasProd[p.nome] || 0;
       const inicial = ESTOQUE_INICIAL[p.nome] || 0;
       const arrecad = vendido * preco;
       totalProdVal += arrecad;
-      linhas.push([p.nome, vendido, inicial, inicial - vendido, arrecad]);
+      linhas.push([p.nome, vendido, inicial, restanteAtual[p.nome], arrecad]);
     }
   });
   linhas.push(['TOTAL PRODUTOS', '', '', '', totalProdVal]);
