@@ -75,8 +75,7 @@ const ESTOQUE_RECONTAGEM = {
 // Pagos e ainda não retirados que estavam na prateleira nessa contagem (conferirEstoque de
 // 03/11): já têm dono, então não são oferecidos. Número fixo: a retirada não muda o estoque.
 const PAGOS_NA_CONTAGEM = {
-  'Camiseta Masculina P': 1, 'Camiseta Masculina G': 2, 'Camiseta Masculina GG': 2,
-  'Camiseta Feminina M': 1, 'Garrafa': 2, 'Boné': 2, 'Moeda': 1
+  'Camiseta Masculina G': 2, 'Camiseta Masculina GG': 2, 'Boné': 2, 'Moeda': 1
 };
 const TAMANHOS_PRODUTOS = {
   'Camiseta Masculina': ['P', 'M', 'G', 'GG'],
@@ -372,7 +371,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-11-03-libera-wendell'
+    versao: '2026-11-03-libera-roberta'
   });
 }
 
