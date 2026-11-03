@@ -365,7 +365,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-10-31-troca'
+    versao: '2026-11-03-faltantes'
   });
 }
 
@@ -1005,6 +1005,9 @@ function gerarResumo() {
   } else {
     resumo.clearContents();
     resumo.clearFormats();
+    // Desfaz mesclagens antigas: os títulos dos faltantes mudam de linha quando as
+    // listas mudam de tamanho, e uma mesclagem velha esconderia dados da tabela.
+    resumo.getRange(1, 1, resumo.getMaxRows(), resumo.getMaxColumns()).breakApart();
   }
 
   const agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
@@ -1105,7 +1108,21 @@ function gerarResumo() {
   resumo.getRange(ultimaLinha - 2, 1, 1, 5)
     .setBackground('#fff0b3').setFontWeight('bold');
 
+  // Quem pagou e não veio / não retirou (se falhar, o resto do Resumo fica de pé).
+  let temFaltantes = false;
+  try {
+    escreverFaltantes_(resumo, ultimaLinha + 2, faltantesEvento_(ss));
+    temFaltantes = true;
+  } catch (e) {
+    Logger.log('Resumo — faltantes: ' + e);
+    resumo.getRange(ultimaLinha + 2, 1).setValue('FALTANTES: lista indisponível (' + e.message + ')');
+  }
+
   resumo.autoResizeColumns(1, 5);
+  if (temFaltantes) {
+    resumo.setColumnWidth(1, 260); resumo.setColumnWidth(2, 240); resumo.setColumnWidth(3, 130);
+    resumo.setColumnWidth(4, 260); resumo.setColumnWidth(5, 340);
+  }
 
   Logger.log('✓ Resumo atualizado em ' + agora +
     ' — ' + totalInscQtd + ' inscrições, R$' + (totalInscVal + totalProdVal).toFixed(2) + ' total.');
@@ -1115,6 +1132,88 @@ function gerarResumo() {
  * Instala trigger que roda gerarResumo() a cada hora.
  * Rode UMA VEZ no editor do Apps Script.
  */
+/* Faltantes do evento, pelas caixinhas da aba Entregas (só lê):
+     não veio  = pagou/confirmou e nenhuma caixinha foi marcada;
+     parcial   = veio, mas ainda falta retirar algo.
+   Quem veio e não teve a caixinha marcada aparece aqui: a lista é tão boa quanto
+   as marcações do balcão. Linhas estornadas ("⚠ sem inscrição/pedido pago") ficam fora. */
+function faltantesEvento_(ss) {
+  const res = { ok: 0, naoVeio: [], parcial: [] };
+  const ent = ss.getSheetByName(ABA_ENTREGAS);
+  const nDados = 3 + ENTREGA_PRODUTOS.length + 1, colChave = nDados + ENTREGA_CONTROLE.length + 1;
+  if (!ent || ent.getLastRow() < 2 || ent.getRange(1, colChave).getValue() !== 'chave') {
+    throw new Error('aba Entregas indisponível — rode atualizarEntregasAgora');
+  }
+
+  // Contato de cada pessoa (a aba Entregas não guarda e-mail nem telefone).
+  const contato = {};
+  [ABA_INSCRICOES, ABA_PEDIDOS].forEach(function (nomeAba) {
+    const aba = ss.getSheetByName(nomeAba);
+    if (!aba || aba.getLastRow() < 2) return;
+    const v = aba.getDataRange().getValues(), h = v[0];
+    const c = { email: h.indexOf('Email'), cpf: h.indexOf('CPF'), tel: h.indexOf('Telefone'), st: h.indexOf('Status Pagamento') };
+    for (let i = 1; i < v.length; i++) {
+      if (!/^(Aprovado|Confirmado)\b/i.test(String(v[i][c.st] || '').trim())) continue;
+      const k = chaveEntrega(v[i][c.cpf], v[i][c.email]), p = contato[k] || (contato[k] = {});
+      if (String(v[i][c.email] || '').trim()) p.email = String(v[i][c.email]).trim();
+      if (String(v[i][c.tel] || '').trim()) p.tel = v[i][c.tel];
+    }
+  });
+
+  ent.getRange(2, 1, ent.getLastRow() - 1, colChave).getValues().forEach(function (r) {
+    if (!String(r[0] || '').trim() || !r[colChave - 1]) return;
+    const inscTxt = String(r[1] || '');
+    const temInsc = inscTxt.trim() !== '' && inscTxt !== '—' && inscTxt.charAt(0) !== '⚠';
+    const temProd = String(r[nDados - 1] === undefined ? '' : r[nDados - 1]).trim() !== '';
+    if (!temInsc && !temProd) return;                                   // nada pago a retirar
+    const inscOk = r[nDados] === true, prodOk = r[nDados + 1] === true, extraOk = r[nDados + 6] === true;
+    const depois = String(r[nDados + 5] || '').trim();
+    const q = qtdsDaLinha_(r);
+    let falta = textoItens_(temInsc && !inscOk ? q.i : {}, temProd && !prodOk ? q.p : {});
+    if (depois && (!extraOk || depois.indexOf('⚠') >= 0)) {
+      falta += (falta ? '; ' : '') + 'comprou depois: ' + depois.replace(/\n/g, ' ');
+    }
+    if (!falta) { res.ok++; return; }
+    const k = contato[r[colChave - 1]] || {};
+    const linha = [celula(r[0], 120), celula(k.email || '', 120), celula(k.tel || '', 30), celula(r[2], 1000), celula(falta, 1000)];
+    (inscOk || prodOk ? res.parcial : res.naoVeio).push(linha);
+  });
+  return res;
+}
+
+/* Escreve a seção de faltantes a partir de linhaIni na aba Resumo. */
+function escreverFaltantes_(resumo, linhaIni, f) {
+  const vazio = ['', '', '', '', ''], cab = ['Nome', 'E-mail', 'Telefone', 'Participantes', 'O que falta retirar'];
+  const linhas = [
+    ['FALTANTES DO EVENTO (pelas marcações da aba Entregas)', '', '', '', ''],
+    ['Retiraram tudo', f.ok, '', '', ''],
+    ['Não vieram (nada marcado)', f.naoVeio.length, '', '', ''],
+    ['Vieram, mas falta retirar algo', f.parcial.length, '', '', ''],
+    vazio
+  ];
+  const titulos = [0];
+  function bloco(titulo, lista) {
+    titulos.push(linhas.length);
+    linhas.push([titulo, '', '', '', '']);
+    linhas.push(cab);
+    lista.forEach(function (l) { linhas.push(l); });
+    if (!lista.length) linhas.push(['Ninguém.', '', '', '', '']);
+    linhas.push(vazio);
+  }
+  bloco('NÃO VIERAM — pagaram/confirmaram e nada foi retirado', f.naoVeio);
+  bloco('VIERAM, MAS FALTA RETIRAR', f.parcial);
+  linhas.pop();
+  resumo.getRange(linhaIni, 1, linhas.length, 5).setValues(linhas);
+  titulos.forEach(function (i) {
+    resumo.getRange(linhaIni + i, 1, 1, 5).merge()
+      .setBackground('#333333').setFontColor('#ffffff').setFontWeight('bold');
+    if (i) resumo.getRange(linhaIni + i + 1, 1, 1, 5)
+      .setBackground('#555555').setFontColor('#ffffff').setFontWeight('bold');
+  });
+  resumo.getRange(linhaIni + 2, 1, 2, 2).setBackground('#fce8b2').setFontWeight('bold');
+  resumo.getRange(linhaIni + 5, 4, linhas.length - 5, 2).setWrap(true).setVerticalAlignment('top');
+}
+
 function instalarTriggerResumo() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'gerarResumo') ScriptApp.deleteTrigger(t);
