@@ -2354,3 +2354,142 @@ function trocarInscricoesPorProdutos_(nome, qtdInscricoes, itensProdutos, aplica
     atualizarEntregasAgora();
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * CONFERÊNCIA DE ESTOQUE — rode conferirEstoque() no editor
+ *   Compara, item por item, o que a planilha diz com a contagem física e procura
+ *   na planilha o que pode explicar a diferença. Lê Inscrições, Pedidos e Entregas
+ *   sem alterar nada; só escreve na própria aba "Conferência de estoque".
+ *   Na prateleira deveria haver: estoque inicial − o que foi marcado como retirado.
+ *   Quem pagou e não retirou ainda está na prateleira, por isso a conta com "vendidos"
+ *   não fecha com a contagem. Retirada feita depois da contagem física distorce a diferença.
+ * ═══════════════════════════════════════════════════════════════════ */
+const ABA_CONFERENCIA = 'Conferência de estoque';
+
+function conferirEstoque() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const pago = function (st) { return /^(Aprovado|Confirmado)\b/i.test(String(st || '').trim()); };
+  const pendente = function (st) { return /Aguardando Pix|Em Análise/.test(String(st || '')); };
+  const fmt = function (d) { return d instanceof Date ? Utilities.formatDate(d, 'America/Sao_Paulo', 'dd/MM HH:mm') : String(d || ''); };
+  const conhecido = function (k) { return Object.prototype.hasOwnProperty.call(ESTOQUE_INICIAL, k); };
+  const vendido = {}, pend = {}, retirado = {};
+  const avisos = [];
+
+  // Inscrições: status e produto vendido por engano nesta aba.
+  const statusInsc = {};
+  const ins = ss.getSheetByName(ABA_INSCRICOES);
+  if (ins && ins.getLastRow() > 1) {
+    const v = ins.getDataRange().getValues(), h = v[0], cSt = h.indexOf('Status Pagamento'), cDet = h.indexOf('Itens (detalhe)'), cNo = h.indexOf('Nome');
+    for (let i = 1; i < v.length; i++) {
+      const st = String(v[i][cSt] || '(vazio)').trim() || '(vazio)';
+      statusInsc[st] = (statusInsc[st] || 0) + 1;
+      if (!pago(st)) continue;
+      Object.keys(parseItensDetalhe(v[i][cDet])).forEach(function (k) {
+        if (conhecido(k)) avisos.push(['Produto na aba Inscrições (não conta como venda)', 'Inscrições linha ' + (i + 1) + ': ' + v[i][cNo] + ' — ' + v[i][cDet]]);
+      });
+    }
+  }
+
+  // Pedidos: vendas, pendentes e linhas que a conta pode não estar entendendo.
+  const statusPed = {}, ids = {};
+  const ped = ss.getSheetByName(ABA_PEDIDOS);
+  if (ped && ped.getLastRow() > 1) {
+    const v = ped.getDataRange().getValues(), h = v[0];
+    const c = { st: h.indexOf('Status Pagamento'), det: h.indexOf('Itens (detalhe)'), no: h.indexOf('Nome'), id: h.indexOf('ID Pagamento'), qtd: h.indexOf('Qtd Total'), data: h.indexOf('Data') };
+    for (let i = 1; i < v.length; i++) {
+      const r = v[i], onde = 'Pedidos linha ' + (i + 1) + ': ' + r[c.no] + ' — ' + r[c.det];
+      const st = String(r[c.st] || '(vazio)').trim() || '(vazio)';
+      statusPed[st] = (statusPed[st] || 0) + 1;
+      const itens = parseItensDetalhe(r[c.det]);
+      if (pendente(st)) {
+        Object.keys(itens).forEach(function (k) { pend[k] = (pend[k] || 0) + itens[k]; });
+        avisos.push(['Pagamento pendente (' + st + ')', onde]);
+      }
+      if (!pago(st)) continue;
+      const soma = Object.keys(itens).reduce(function (t, k) { return t + itens[k]; }, 0);
+      if (!soma) avisos.push(['Venda paga sem itens legíveis (não entra na conta)', onde]);
+      else if (Number(r[c.qtd]) && Number(r[c.qtd]) !== soma) avisos.push(['Qtd Total diferente dos itens (' + r[c.qtd] + ' × ' + soma + ')', onde]);
+      const d = r[c.data], depois = !(d instanceof Date) || d.getTime() >= RECONTAGEM_EM.getTime();
+      Object.keys(itens).forEach(function (k) {
+        if (!conhecido(k)) avisos.push(['Item com nome desconhecido (não entra na conta)', onde]);
+        vendido[k] = (vendido[k] || 0) + itens[k];
+      });
+      if (depois) avisos.push(['Venda depois da contagem física (' + fmt(d) + ')', onde]);
+      const id = String(r[c.id] || '').trim();
+      if (id) {
+        if (ids[id]) avisos.push(['Mesmo ID de pagamento em duas vendas (pode ser venda contada 2×)', onde + ' | também na linha ' + ids[id]]);
+        else ids[id] = i + 1;
+      }
+    }
+  }
+
+  // Entregas: o que o balcão marcou como retirado.
+  const ent = ss.getSheetByName(ABA_ENTREGAS);
+  const nDados = 3 + ENTREGA_PRODUTOS.length + 1, colChave = nDados + ENTREGA_CONTROLE.length + 1, colFoto = colChave + 1;
+  if (!ent || ent.getLastRow() < 2 || ent.getRange(1, colChave).getValue() !== 'chave') {
+    Logger.log('Aba Entregas indisponível — rode atualizarEntregasAgora e tente de novo.');
+    return;
+  }
+  ent.getRange(2, 1, ent.getLastRow() - 1, colFoto).getValues().forEach(function (r, i) {
+    if (!r[colChave - 1]) return;
+    const q = qtdsDaLinha_(r).p, prodOk = r[nDados + 1] === true, extraOk = r[nDados + 6] === true;
+    const temProd = Object.keys(q).length > 0;
+    if (prodOk && !temProd) {
+      avisos.push(['"Produtos entregues" marcado em quem não tem produto pago', 'Entregas linha ' + (i + 2) + ': ' + r[0]]);
+      return;
+    }
+    if (!prodOk) return;
+    const foto = completarFotoVazia_(r, lerFoto_(r[colFoto - 1])), depoisTxt = String(r[nDados + 5] || '').trim();
+    if (foto.pv) {            // entrega marcada antes da foto existir: não dá para saber o que saiu
+      avisos.push(['Retirado incerto (entrega marcada antes da versão com foto; não entra em "Retirados")', 'Entregas linha ' + (i + 2) + ': ' + r[0]]);
+      return;
+    }
+    // Só conta o que já foi entregue: até a foto do Extra (se marcado) ou da 1ª entrega.
+    const entregue = extraOk ? (foto.x && foto.x.p ? foto.x.p : q) : (depoisTxt && foto.p ? foto.p : q);
+    Object.keys(q).forEach(function (k) {
+      retirado[k] = (retirado[k] || 0) + Math.min(q[k], entregue[k] || 0);
+    });
+  });
+
+  // Tabela por item.
+  const cab = ['Produto', 'Estoque inicial', 'Vendidos (pagos)', 'Pendentes', 'Retirados (marcados)', 'Pagos e não retirados',
+               'Deveria ter na prateleira', 'Contagem física', 'Diferença (contagem − deveria)'];
+  const tabela = Object.keys(ESTOQUE_INICIAL).map(function (k) {
+    const ini = ESTOQUE_INICIAL[k], ven = vendido[k] || 0, ret = retirado[k] || 0;
+    const deveria = ini - ret;
+    const tem = Object.prototype.hasOwnProperty.call(ESTOQUE_RECONTAGEM, k);
+    return [k, ini, ven, pend[k] || 0, ret, ven - ret, deveria, tem ? ESTOQUE_RECONTAGEM[k] : '—', tem ? ESTOQUE_RECONTAGEM[k] - deveria : '—'];
+  });
+
+  const statusTxt = function (m) { return Object.keys(m).sort().map(function (k) { return k + ': ' + m[k]; }).join(' | ') || '(nenhum)'; };
+  avisos.sort(function (a, b) { return a[0].localeCompare(b[0], 'pt'); });
+
+  // Registro (para copiar) e aba própria.
+  Logger.log(cab.join(' | '));
+  tabela.forEach(function (l) { Logger.log(l.join(' | ')); });
+  Logger.log('Status em Inscrições → ' + statusTxt(statusInsc));
+  Logger.log('Status em Pedidos → ' + statusTxt(statusPed));
+  avisos.slice(0, 60).forEach(function (a) { Logger.log('⚠ ' + a[0] + ' → ' + a[1]); });
+  if (avisos.length > 60) Logger.log('… e mais ' + (avisos.length - 60) + ' avisos na aba "' + ABA_CONFERENCIA + '".');
+  if (!avisos.length) Logger.log('Nenhum aviso: nada de estranho nas linhas da planilha.');
+
+  let aba = ss.getSheetByName(ABA_CONFERENCIA);
+  if (!aba) aba = ss.insertSheet(ABA_CONFERENCIA);
+  const a1 = aba.getLastRow() ? String(aba.getRange(1, 1).getValue()) : '';
+  if (aba.getLastRow() && a1 !== cab[0]) { Logger.log('Já existe uma aba "' + ABA_CONFERENCIA + '" feita à mão — não mexi nela.'); return; }
+  aba.clear();
+  const n = cab.length, branco = function (x) { const l = [x]; while (l.length < n) l.push(''); return l; };
+  const linhas = [cab].concat(tabela, [branco(''), branco('Status em Inscrições: ' + statusTxt(statusInsc)),
+    branco('Status em Pedidos: ' + statusTxt(statusPed)), branco(''), branco('AVISOS (' + avisos.length + ')')]);
+  avisos.forEach(function (a) { const l = branco(a[0]); l[1] = celula(a[1], 500); linhas.push(l); });
+  if (!avisos.length) linhas.push(branco('Nenhum aviso.'));
+  aba.getRange(1, 1, linhas.length, n).setValues(linhas);
+  aba.getRange(1, 1, 1, n).setFontWeight('bold').setBackground('#111111').setFontColor('#e1ad01').setWrap(true);
+  aba.setFrozenRows(1);
+  aba.setColumnWidth(1, 300);
+  tabela.forEach(function (l, i) {
+    if (typeof l[8] === 'number' && l[8] !== 0) aba.getRange(i + 2, 9).setBackground(COR_AMARELO).setFontWeight('bold');
+  });
+  Logger.log('✓ Aba "' + ABA_CONFERENCIA + '" atualizada.');
+}
