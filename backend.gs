@@ -57,7 +57,7 @@ const ESTOQUE_INICIAL = {
   'Camiseta Masculina G': 55, 'Camiseta Masculina GG': 45,
   'Camiseta Feminina P': 10,  'Camiseta Feminina M': 20,
   'Camiseta Feminina G': 5,
-  'Velame': 100, 'Garrafa': 236, 'Boné': 100, 'Moeda': 120
+  'Velame': 97, 'Garrafa': 122, 'Boné': 100, 'Moeda': 120
 };
 // Itens tirados de venda à mão (aparecem "Esgotado" e a compra é recusada),
 // mesmo que ainda sobre alguma unidade. Para voltar a vender, tire daqui e reimplante.
@@ -371,7 +371,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-11-03-libera-roberta'
+    versao: '2026-11-04-estoque-inicial'
   });
 }
 
