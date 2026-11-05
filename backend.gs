@@ -109,6 +109,7 @@ const EVENTO = {
    (divulgado 24/10 → prorrogado 28/10 → aberto até o dia do evento, inscrição na hora pelo site).
    Fonte de verdade do corte — o frontend também fecha nessa data, mas é
    este check que impede inscrições atrasadas mesmo com a página aberta. */
+const LOJA_ABERTA = false;   // false: o servidor recusa toda compra da loja (antes de cobrar)
 const PRAZO_INSCRICAO_MS = new Date('2026-11-02T02:59:59Z').getTime();
 
 /* ── HELPERS ─────────────────────────────────────────────────────── */
@@ -371,7 +372,7 @@ function doGet(e) {
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-11-04-estoque-inicial'
+    versao: '2026-11-05-loja-fechada'
   });
 }
 
@@ -380,6 +381,8 @@ function validatePayload(data, tabela) {
   const items = data.items;
   if (data.tipo !== 'produto' && Date.now() > PRAZO_INSCRICAO_MS)
     return { ok: false, message: 'As inscrições foram encerradas.' };
+  if (data.tipo === 'produto' && !LOJA_ABERTA)
+    return { ok: false, message: 'A loja foi encerrada. Nada foi cobrado.' };
   if (!inscrito || !items || !items.length || items.length > 20)
     return { ok: false, message: 'Dados incompletos. Preencha tudo e tente novamente.' };
   // Armadilha para robôs: campo invisível no formulário que humano não preenche.
