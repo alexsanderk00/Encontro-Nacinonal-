@@ -1,9 +1,16 @@
 /* ===================================================================
    HOMEPAGE — Encontro Nacional dos Calções Pretos 2026
-   Menu mobile, efeito de scroll, animações, galeria e modal de imagem.
+   Menu, cabeçalho, entrada na rolagem (com a faixa dourada), "Sua turma",
+   galeria por ano e modal de imagem.
    =================================================================== */
 
 'use strict';
+
+document.documentElement.classList.add('js');
+window.__rvOk = true;   // o fallback do <head> só revela tudo se este arquivo não carregar
+
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyrVIrMX1EjB6DbDnCLBZ1B73IM3veQNFTWz8lhfQ3_9H-lvIUfNkCf07wsP41sRKPS/exec';
+const REDUZIR_MOVIMENTO = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** rAF throttle — agrupa vários eventos de scroll em um único frame. */
 function rafThrottle(fn) {
@@ -55,176 +62,194 @@ function rafThrottle(fn) {
   }), { passive: true });
 })();
 
-/* ── ANIMAÇÃO DE ENTRADA AO ROLAR ─────────────────────────────── */
-(function initReveal() {
-  const targets = document.querySelectorAll(
-    '.info-card, .program-day, .produto, .galeria-carrossel-box, .contact-card, .about-content'
-  );
-  if (!targets.length || !('IntersectionObserver' in window)) return;
-
-  targets.forEach(function (el) { el.classList.add('reveal'); });
-
+/* ── ENTRADA NA ROLAGEM ───────────────────────────────────────── */
+/* .rv sobe e aparece (80 ms entre irmãos); .sec-head desenha a faixa dourada. */
+const observarEntrada = (function () {
+  if (!('IntersectionObserver' in window)) {
+    return function (el) { el.classList.add('in'); };
+  }
   const observer = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       if (!entry.isIntersecting) return;
-      entry.target.classList.add('visible');
+      entry.target.classList.add('in');
       observer.unobserve(entry.target);
     });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-
-  targets.forEach(function (el) { observer.observe(el); });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+  return function (el) { observer.observe(el); };
 })();
 
-/* ── CONTAGEM REGRESSIVA (prazo de inscrição) ─────────────────── */
-/* Fases (trocam sozinhas, inclusive com a página aberta):
-     0 — até 24/10 23:59 → prazo divulgado, contagem até 24/10
-     1 — até 28/10 23:59 → "prorrogado": data-prorroga / data-prorroga-aviso, contagem até 28/10
-     2 — até 31/10 09:00 → "na hora": data-na-hora / data-na-hora-aviso, contagem até o início do Encontro
-     3 — até 01/11 23:59 → Encontro acontecendo, inscrição na hora pelo site
-     4 — depois          → inscrições encerradas
-   O corte real fica no backend.gs (PRAZO_INSCRICAO_MS) e no inscricao.html.
-   Pré-visualizar: ?previa-prorrogacao, ?previa-na-hora ou ?previa-dia-evento. */
-const PRAZO_DIVULGADO  = new Date('2026-10-24T23:59:59-03:00').getTime();
-const PRAZO_PRORROGADO = new Date('2026-10-28T23:59:59-03:00').getTime();
-const INICIO_EVENTO    = new Date('2026-10-31T09:00:00-03:00').getTime();
-const PRAZO_FINAL      = new Date('2026-11-01T23:59:59-03:00').getTime();
-
-const PREVIA = (function () {
-  const q = location.search;
-  if (/[?&]previa-dia-evento\b/.test(q)) return new Date('2026-10-31T10:00:00-03:00').getTime();
-  if (/[?&]previa-na-hora\b/.test(q))    return new Date('2026-10-29T10:00:00-03:00').getTime();
-  if (/[?&]previa-prorrogacao\b/.test(q)) return new Date('2026-10-25T10:00:00-03:00').getTime();
-  return 0;
-})();
-
-function faseDoPrazo(agora) {
-  if (agora <= PRAZO_DIVULGADO) return 0;
-  if (agora <= PRAZO_PRORROGADO) return 1;
-  if (agora <= INICIO_EVENTO) return 2;
-  if (agora <= PRAZO_FINAL) return 3;
-  return 4;
-}
-
-function aplicarFase(fase) {
-  document.querySelectorAll('[data-prorroga],[data-na-hora]').forEach(function (e) {
-    const t = fase >= 2 && e.hasAttribute('data-na-hora') ? e.getAttribute('data-na-hora')
-      : fase >= 1 && e.hasAttribute('data-prorroga') ? e.getAttribute('data-prorroga') : null;
-    if (t !== null) e.textContent = t;
+(function initReveal() {
+  document.querySelectorAll('.rv').forEach(function (el) {
+    const irmaos = Array.prototype.filter.call(el.parentElement.children, function (c) { return c.classList.contains('rv'); });
+    el.style.transitionDelay = (irmaos.indexOf(el) * 80) + 'ms';
+    observarEntrada(el);
   });
-  document.querySelectorAll('[data-prorroga-aviso]').forEach(function (e) { e.hidden = fase !== 1; });
-  document.querySelectorAll('[data-na-hora-aviso]').forEach(function (e) { e.hidden = !(fase === 2 || fase === 3); });
-}
-
-(function initCountdown() {
-  const el = document.getElementById('countdown');
-  const compacto = document.getElementById('countdown-inscricao');
-  const legenda = document.querySelector('.hero__countdown-caption');
-  if (!el && !compacto) return;
-
-  const desvio = PREVIA ? PREVIA - Date.now() : 0;   // só ≠ 0 na prévia
-  let fase = -1;
-  const campos = el ? {
-    dias:  el.querySelector('[data-cd="dias"]'),
-    horas: el.querySelector('[data-cd="horas"]'),
-    min:   el.querySelector('[data-cd="min"]'),
-    seg:   el.querySelector('[data-cd="seg"]')
-  } : null;
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-
-  let intervalo = null;
-
-  function mensagemFinal(htmlHero, textoCompacto) {
-    if (el) el.innerHTML = htmlHero;
-    if (legenda) legenda.hidden = true;
-    if (compacto) compacto.textContent = textoCompacto;
-  }
-
-  function tick() {
-    const agora = Date.now() + desvio;
-    const f = faseDoPrazo(agora);
-    if (f !== fase) { fase = f; aplicarFase(fase); }
-
-    if (fase === 3) {
-      mensagemFinal('<p class="hero__countdown-encerrado">O Encontro está acontecendo! Inscreva-se na hora, pelo site.</p>',
-        '📍 O Encontro está acontecendo — inscreva-se na hora, pelo site!');
-      return;
-    }
-    if (fase === 4) {
-      mensagemFinal('<p class="hero__countdown-encerrado">Inscrições encerradas</p>', 'Inscrições encerradas.');
-      if (intervalo) clearInterval(intervalo);
-      return;
-    }
-
-    const alvo = fase === 0 ? PRAZO_DIVULGADO : fase === 1 ? PRAZO_PRORROGADO : INICIO_EVENTO;
-    const diff = alvo - agora;
-    const dias  = Math.floor(diff / 86400000);
-    const horas = Math.floor((diff % 86400000) / 3600000);
-    const min   = Math.floor((diff % 3600000) / 60000);
-    const seg   = Math.floor((diff % 60000) / 1000);
-    if (campos) {
-      campos.dias.textContent  = pad(dias);
-      campos.horas.textContent = pad(horas);
-      campos.min.textContent   = pad(min);
-      campos.seg.textContent   = pad(seg);
-    }
-    if (compacto) {
-      compacto.textContent = fase === 2
-        ? (dias > 0 ? (dias === 1 ? '⏳ Falta 1 dia' : '⏳ Faltam ' + dias + ' dias') + ' para o Encontro — inscreva-se pelo site, até na hora!'
-                    : '⏳ Falta pouco para o Encontro! Inscreva-se pelo site, inclusive na hora.')
-        : (dias > 0 ? (dias === 1 ? '⏳ Resta 1 dia' : '⏳ Restam ' + dias + ' dias') + ' para o fim das inscrições'
-                    : '⏳ Últimas horas para se inscrever!');
-    }
-  }
-
-  tick();
-  intervalo = setInterval(tick, 1000);
+  document.querySelectorAll('.sec-head').forEach(observarEntrada);
 })();
 
-/* ── GALERIA (carrosséis por ano) + MODAL DE IMAGEM ───────────── */
+/* Numera as seções na ordem em que aparecem (01, 02…), pulando as ocultas. */
+function numerarSecoes() {
+  let n = 0;
+  document.querySelectorAll('.section').forEach(function (sec) {
+    const num = sec.querySelector('.sec-num');
+    if (!num || sec.hidden) return;
+    n++;
+    num.textContent = String(n).padStart(2, '0');
+  });
+}
+numerarSecoes();
+
+/* ── SUA TURMA ────────────────────────────────────────────────── */
+/* Números por ano de formação (inscrições pagas), vindos do backend:
+   ?action=turmas → { turmas: [{ ano, formados, pessoas }] }. Sem nomes.
+   Se não carregar, a seção e os números do topo continuam escondidos. */
+(function initTurma() {
+  const secao = document.getElementById('turma');
+  const select = document.getElementById('turma-ano');
+  const resultado = document.getElementById('turma-resultado');
+  const formacao = document.getElementById('turma-formacao');
+  const ranking = document.getElementById('turma-ranking');
+  if (!secao || !select || !window.fetch) return;
+
+  function fmt(n) { return Number(n).toLocaleString('pt-BR'); }
+
+  function mostrar(turmas) {
+    const lista = turmas.filter(function (t) { return t && t.ano && t.formados > 0; });
+    if (!lista.length) return;
+    const ordem = lista.slice().sort(function (a, b) { return b.formados - a.formados || b.pessoas - a.pessoas || a.ano - b.ano; });
+    const posicao = {};
+    ordem.forEach(function (t, i) {
+      // mesma posição para turmas empatadas no número de formados
+      posicao[t.ano] = i > 0 && t.formados === ordem[i - 1].formados ? posicao[ordem[i - 1].ano] : i + 1;
+    });
+    const total = lista.reduce(function (s, t) { return { formados: s.formados + t.formados, pessoas: s.pessoas + t.pessoas }; }, { formados: 0, pessoas: 0 });
+
+    // Números do topo
+    const numeros = document.getElementById('hero-numeros');
+    if (numeros) {
+      numeros.querySelector('[data-num="formados"]').textContent = fmt(total.formados);
+      numeros.querySelector('[data-num="turmas"]').textContent = fmt(lista.length);
+      numeros.querySelector('[data-num="pessoas"]').textContent = fmt(total.pessoas);
+      numeros.hidden = false;
+    }
+
+    // Seletor (anos mais recentes primeiro)
+    lista.slice().sort(function (a, b) { return b.ano - a.ano; }).forEach(function (t) {
+      const op = document.createElement('option');
+      op.value = String(t.ano);
+      op.textContent = 'Turma de ' + t.ano;
+      select.appendChild(op);
+    });
+
+    // Ranking: as 6 turmas mais presentes
+    const maior = ordem[0].formados;
+    ordem.slice(0, 6).forEach(function (t) {
+      const li = document.createElement('li');
+      li.dataset.ano = String(t.ano);
+      const bt = document.createElement('button');
+      bt.type = 'button';
+      bt.className = 'ranking__item';
+      bt.setAttribute('aria-label', 'Ver a turma de ' + t.ano + ': ' + t.formados + ' formados');
+      const ano = document.createElement('span');
+      ano.className = 'ranking__ano';
+      ano.textContent = t.ano;
+      const barra = document.createElement('span');
+      barra.className = 'ranking__barra';
+      const i = document.createElement('i');
+      i.style.setProperty('--v', String(t.formados / maior));
+      barra.appendChild(i);
+      const n = document.createElement('span');
+      n.className = 'ranking__n';
+      n.textContent = t.formados;
+      bt.append(ano, barra, n);
+      bt.addEventListener('click', function () { select.value = String(t.ano); escolher(); });
+      li.appendChild(bt);
+      ranking.appendChild(li);
+    });
+
+    function escolher() {
+      const t = lista.find(function (x) { return String(x.ano) === select.value; });
+      ranking.querySelectorAll('li').forEach(function (li) { li.classList.toggle('atual', li.dataset.ano === select.value); });
+      resultado.textContent = '';
+      formacao.textContent = '';
+      if (!t) {
+        const p = document.createElement('p');
+        p.className = 'turma__dica';
+        p.textContent = 'Escolha o ano para ver quantos da sua turma estiveram no Encontro.';
+        resultado.appendChild(p);
+        return;
+      }
+      const num = document.createElement('p');
+      num.className = 'turma__numero';
+      num.textContent = fmt(t.formados);
+      const txt = document.createElement('p');
+      txt.className = 'turma__texto';
+      const forte = document.createElement('strong');
+      forte.textContent = 'formado' + (t.formados === 1 ? '' : 's') + ' da turma de ' + t.ano;
+      txt.append(forte, document.createTextNode(
+        (t.formados === 1 ? ' se inscreveu' : ' se inscreveram') + ' no Encontro 2026' +
+        (t.pessoas > t.formados ? ' — ' + fmt(t.pessoas) + ' pessoas contando a família.' : '.')));
+      const pos = document.createElement('p');
+      pos.className = 'turma__posicao';
+      pos.textContent = posicao[t.ano] === 1 ? 'A turma mais presente do Encontro.'
+        : posicao[t.ano] + 'ª turma mais presente, entre ' + lista.length + '.';
+      resultado.append(num, txt, pos);
+      // Formação: um quadrado por formado (até 60), entrando em fila
+      for (let k = 0; k < Math.min(t.formados, 60); k++) {
+        const q = document.createElement('span');
+        if (!REDUZIR_MOVIMENTO) q.style.animationDelay = (k * 40) + 'ms';
+        formacao.appendChild(q);
+      }
+    }
+    select.addEventListener('change', escolher);
+
+    secao.hidden = false;
+    document.querySelectorAll('[data-turma-link]').forEach(function (el) { el.hidden = false; });
+    numerarSecoes();
+    observarEntrada(ranking);
+  }
+
+  fetch(BACKEND_URL + '?action=turmas')
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && Array.isArray(d.turmas)) mostrar(d.turmas); })
+    .catch(function () { /* sem dados: a seção fica escondida */ });
+})();
+
+/* ── GALERIA (um ano por vez) + MODAL DE IMAGEM ───────────────── */
 (function initGaleriaModal() {
   const galerias = {
-    '2023': [
-      'images/galeria/2023/Imagem1.jpg',
-      'images/galeria/2023/Imagem2.jpg',
-      'images/galeria/2023/Imagem3.jpg',
-      'images/galeria/2023/Imagem4.jpg',
-      'images/galeria/2023/Imagem5.jpg',
-      'images/galeria/2023/Imagem6.jpg'
-    ],
-    '2024': [
-      'images/galeria/2024/Imagem1.jpg',
-      'images/galeria/2024/Imagem2.jpg',
-      'images/galeria/2024/Imagem3.jpg',
-      'images/galeria/2024/Imagem4.jpg',
-      'images/galeria/2024/Imagem5.jpg'
-    ],
-    '2025': [
-      'images/galeria/2025/Imagem1.JPG',
-      'images/galeria/2025/Imagem2.JPG',
-      'images/galeria/2025/Imagem3.JPG',
-      'images/galeria/2025/Imagem4.JPG',
-      'images/galeria/2025/Imagem5.JPG',
-      'images/galeria/2025/Imagem6.JPG'
-    ]
+    '2025': ['images/web/2025-imagem1.webp', 'images/web/2025-imagem2.webp', 'images/web/2025-imagem3.webp',
+             'images/web/2025-imagem4.webp', 'images/web/2025-imagem5.webp', 'images/web/2025-imagem6.webp'],
+    '2024': ['images/web/2024-imagem1.webp', 'images/web/2024-imagem2.webp', 'images/web/2024-imagem3.webp',
+             'images/web/2024-imagem4.webp', 'images/web/2024-imagem5.webp'],
+    '2023': ['images/web/2023-imagem1.webp', 'images/web/2023-imagem2.webp', 'images/web/2023-imagem3.webp',
+             'images/web/2023-imagem4.webp', 'images/web/2023-imagem5.webp', 'images/web/2023-imagem6.webp']
   };
-  const galeriaIdx = { '2023': 0, '2024': 0, '2025': 0 };
+  const img = document.getElementById('galeria-img');
+  const contador = document.getElementById('galeria-contador');
+  let ano = '2025';
+  let idx = 0;
 
-  function mostrarGaleria(ano) {
-    const img = document.getElementById('img-galeria-' + ano);
-    if (img) img.src = galerias[ano][galeriaIdx[ano]];
+  function mostrar() {
+    if (!img) return;
+    img.src = galerias[ano][idx];
+    img.alt = 'Foto ' + (idx + 1) + ' do Encontro de ' + ano;
+    if (contador) contador.textContent = (idx + 1) + ' / ' + galerias[ano].length;
   }
 
-  function mudarGaleria(ano, direcao) {
-    const imgs = galerias[ano];
-    if (!imgs) return;
-    galeriaIdx[ano] = (galeriaIdx[ano] + direcao + imgs.length) % imgs.length;
-    mostrarGaleria(ano);
-  }
-
-  document.querySelectorAll('.carousel-btn[data-galeria]').forEach(function (btn) {
+  document.querySelectorAll('.galeria__ano').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      mudarGaleria(btn.dataset.galeria, parseInt(btn.dataset.dir, 10));
+      ano = btn.dataset.ano;
+      idx = 0;
+      document.querySelectorAll('.galeria__ano').forEach(function (b) { b.setAttribute('aria-pressed', String(b === btn)); });
+      mostrar();
+    });
+  });
+  document.querySelectorAll('.galeria__btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const n = galerias[ano].length;
+      idx = (idx + parseInt(btn.dataset.dir, 10) + n) % n;
+      mostrar();
     });
   });
 
@@ -237,14 +262,14 @@ function aplicarFase(fase) {
   if (!modal || !modalImg) return;
 
   let arr = [];
-  let idx = 0;
+  let pos = 0;
   let lastFocus = null;
 
   function abrir(lista, posicao, origem) {
     arr = lista;
-    idx = posicao;
+    pos = posicao;
     lastFocus = origem || null;
-    modalImg.src = arr[idx];
+    modalImg.src = arr[pos];
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
     const multi = arr.length > 1;
@@ -261,17 +286,17 @@ function aplicarFase(fase) {
 
   function navegar(direcao) {
     if (arr.length < 2) return;
-    idx = (idx + direcao + arr.length) % arr.length;
-    modalImg.src = arr[idx];
+    pos = (pos + direcao + arr.length) % arr.length;
+    modalImg.src = arr[pos];
   }
 
   /* Torna uma imagem clicável e acessível por teclado. */
-  function tornarZoomavel(img, getLista, getPos) {
-    img.setAttribute('role', 'button');
-    img.setAttribute('tabindex', '0');
-    function ativar() { abrir(getLista(), getPos(), img); }
-    img.addEventListener('click', ativar);
-    img.addEventListener('keydown', function (e) {
+  function tornarZoomavel(el, getLista, getPos) {
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    function ativar() { abrir(getLista(), getPos(), el); }
+    el.addEventListener('click', ativar);
+    el.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         ativar();
@@ -279,18 +304,12 @@ function aplicarFase(fase) {
     });
   }
 
-  // Imagens da galeria
-  Object.keys(galerias).forEach(function (ano) {
-    const img = document.getElementById('img-galeria-' + ano);
-    if (img) tornarZoomavel(img, function () { return galerias[ano]; }, function () { return galeriaIdx[ano]; });
-  });
+  if (img) tornarZoomavel(img, function () { return galerias[ano]; }, function () { return idx; });
 
-  // Imagens dos produtos
-  const produtoImgs = Array.prototype.slice.call(document.querySelectorAll('.produto__img'))
-    .filter(function (el) { return el.tagName === 'IMG'; });
-  const produtoSrcs = produtoImgs.map(function (img) { return img.getAttribute('src'); });
-  produtoImgs.forEach(function (img, i) {
-    tornarZoomavel(img, function () { return produtoSrcs; }, function () { return i; });
+  const produtoImgs = Array.prototype.slice.call(document.querySelectorAll('.produto__img'));
+  const produtoSrcs = produtoImgs.map(function (el) { return el.getAttribute('src'); });
+  produtoImgs.forEach(function (el, i) {
+    tornarZoomavel(el, function () { return produtoSrcs; }, function () { return i; });
   });
 
   btnClose.addEventListener('click', fechar);

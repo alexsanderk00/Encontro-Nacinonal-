@@ -366,13 +366,21 @@ function doGet(e) {
     cache.put('estoque_publico', JSON.stringify(out), 30);
     return jsonOut(out);
   }
+  if (e && e.parameter && e.parameter.action === 'turmas') {
+    const cache = CacheService.getScriptCache();
+    const salvo = cache.get('turmas_publico');
+    if (salvo) return jsonOut(JSON.parse(salvo));
+    const out = { status: 'ok', turmas: resumoTurmas_() };
+    cache.put('turmas_publico', JSON.stringify(out), 1800);
+    return jsonOut(out);
+  }
   // evento_data permite conferir de fora qual versão do script está publicada.
   return jsonOut({
     status: 'ok',
     message: 'Backend do ' + EVENTO.nome + ' ativo.',
     evento_data: EVENTO.data,
     evento_horario: EVENTO.horario,
-    versao: '2026-11-05-loja-fechada'
+    versao: '2026-11-06-turmas'
   });
 }
 
@@ -2566,4 +2574,34 @@ function conferirEstornos_(gravar) {
     try { CacheService.getScriptCache().remove('estoque_publico'); } catch (e) {}
     atualizarEntregasAgora();
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+ * "ENCONTRE SUA TURMA" (site, doGet ?action=turmas) — só números, sem nomes
+ *   Por ano de formação na EsEFEx: quantos formados se inscreveram no Encontro
+ *   (inscrições pagas, uma por pessoa que fez a inscrição) e quantas pessoas no
+ *   total, contando a família. Anos digitados de forma estranha ficam de fora.
+ * ═══════════════════════════════════════════════════════════════════ */
+function resumoTurmas_() {
+  const aba = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ABA_INSCRICOES);
+  const porAno = {};
+  if (aba && aba.getLastRow() > 1) {
+    const v = aba.getDataRange().getValues(), h = v[0];
+    const c = { st: h.indexOf('Status Pagamento'), ano: h.indexOf('Ano Formação EsEFEx'), det: h.indexOf('Itens (detalhe)'),
+                cpf: h.indexOf('CPF'), email: h.indexOf('Email') };
+    for (let i = 1; i < v.length; i++) {
+      if (!/^(Aprovado|Confirmado)\b/i.test(String(v[i][c.st] || '').trim())) continue;
+      const a = v[i][c.ano];
+      const m = (a instanceof Date ? String(a.getFullYear()) : String(a === null || a === undefined ? '' : a)).match(/\b(19[4-9]\d|20[0-2]\d)\b/);
+      if (!m) continue;
+      const t = porAno[m[1]] || (porAno[m[1]] = { formados: {}, pessoas: 0 });
+      t.formados[baseChave(v[i][c.cpf], v[i][c.email])] = true;
+      const itens = parseItensDetalhe(v[i][c.det]);
+      t.pessoas += Object.keys(itens).reduce(function (s, k) { return s + itens[k]; }, 0);
+    }
+  }
+  return Object.keys(porAno).sort().map(function (ano) {
+    return { ano: Number(ano), formados: Object.keys(porAno[ano].formados).length, pessoas: porAno[ano].pessoas };
+  });
 }

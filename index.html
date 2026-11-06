@@ -1,16 +1,18 @@
 <!DOCTYPE html>
+<!-- Tema: formatura / turma — preto e dourado, linhas retas e alinhamento em grade;
+     a faixa dourada (como a do uniforme) se desenha em cada seção ao rolar. -->
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Encontro Nacional dos Calções Pretos 2026</title>
-    <meta name="description" content="Encontro Nacional dos Calções Pretos 2026 — reunião dos militares formados em Educação Física pela EsEFEx. Dia 31 de outubro de 2026, no Rio de Janeiro. Inscreva-se!">
+    <meta name="description" content="Encontro Nacional dos Calções Pretos 2026 — reunião dos militares formados em Educação Física pela EsEFEx, realizado em 31 de outubro de 2026, no Rio de Janeiro.">
     <meta name="theme-color" content="#0d0d0d">
     <link rel="icon" type="image/png" href="images/logos/esefex-logo.png">
 
     <!-- Open Graph -->
     <meta property="og:title" content="Encontro Nacional dos Calções Pretos 2026">
-    <meta property="og:description" content="Reunião dos militares formados em Educação Física pela EsEFEx. Dia 31 de outubro de 2026, no Rio de Janeiro.">
+    <meta property="og:description" content="Reunião dos militares formados em Educação Física pela EsEFEx. 31 de outubro de 2026, no Rio de Janeiro.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.encontrocalcaopreto.com.br/">
     <meta property="og:image" content="https://www.encontrocalcaopreto.com.br/images/og-card.jpg">
@@ -20,10 +22,11 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/shared.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=20261106">
+    <script>document.documentElement.classList.add('js');setTimeout(function(){if(!window.__rvOk)document.documentElement.classList.add('rv-fallback');},4000);</script>
 
     <script type="application/ld+json">
     {
@@ -52,41 +55,31 @@
         "@type": "Organization",
         "name": "Encontro Nacional dos Calções Pretos",
         "email": "encontrocalcaopreto@gmail.com"
-      },
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "BRL",
-        "lowPrice": 0,
-        "highPrice": 70,
-        "url": "https://www.encontrocalcaopreto.com.br/inscricao.html",
-        "availability": "https://schema.org/InStock",
-        "validThrough": "2026-11-01T23:59:59-03:00"
       }
     }
     </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body>
+<body class="home">
     <a href="#main" class="skip-link">Pular para o conteúdo</a>
 
     <!-- ── CABEÇALHO ── -->
     <header class="site-header">
         <nav class="nav container" aria-label="Navegação principal">
             <a href="#inicio" class="logo" aria-label="Encontro Nacional dos Calções Pretos 2026 — início">
-                <img src="images/logos/logo-poupex.png" alt="Logo Poupex">
-                <img src="images/logos/esefex-logo.png" alt="Logo EsEFEx">
+                <img src="images/logos/logo-poupex.png" alt="Logo Poupex" width="378" height="156">
+                <img src="images/logos/esefex-logo.png" alt="Logo EsEFEx" width="256" height="251">
                 <span class="logo__text">Encontro Nacional 2026</span>
             </a>
             <button class="mobile-menu-toggle" id="mobile-menu-toggle"
                     aria-label="Abrir menu" aria-expanded="false" aria-controls="nav-links">☰</button>
             <ul class="nav-links" id="nav-links">
                 <li><a href="#inicio">Início</a></li>
+                <li data-turma-link hidden><a href="#turma">Sua turma</a></li>
                 <li><a href="#about">Sobre</a></li>
-                <li><a href="#program">Programação</a></li>
-                <li><a href="#registration">Inscrição</a></li>
-                <li><a href="#produtos">Produtos Oficiais</a></li>
-                <li><a href="loja.html">Loja</a></li>
-                <li><a href="#galeria">Galeria de Fotos</a></li>
+                <li><a href="#program">O dia</a></li>
+                <li><a href="#galeria">Galeria</a></li>
+                <li><a href="#registration">Inscrição e loja</a></li>
                 <li><a href="#contact">Contato</a></li>
             </ul>
         </nav>
@@ -96,97 +89,92 @@
         <!-- ── HERO ── -->
         <section class="hero" id="inicio">
             <div class="hero__media">
-                <img src="images/galeria/2024/Imagem1.jpg" alt="Formados da EsEFEx reunidos no ginásio durante o Encontro Nacional dos Calções Pretos" class="hero__foto" fetchpriority="high">
+                <img src="images/web/2024-imagem1.webp" alt="Formados da EsEFEx reunidos no ginásio durante o Encontro Nacional dos Calções Pretos" class="hero__foto" width="1284" height="645" fetchpriority="high">
                 <div class="hero__duotone"></div>
             </div>
 
-            <div class="hero__content">
-                <div class="hero__badge">
-                    <img src="images/logos/esefex-logo.png" alt="" class="hero__badge-img">
-                </div>
-
-                <p class="hero__eyebrow">Encontro Nacional</p>
+            <div class="hero__content container">
+                <p class="hero__eyebrow">Encontro Nacional · EsEFEx</p>
                 <h1 class="hero__title">Calções Pretos</h1>
-                <p class="hero__meta">31 de Outubro de 2026 · Rio de Janeiro</p>
-
-                <p class="aviso-prorrogacao aviso-prorrogacao--hero" data-prorroga-aviso hidden>🎉 <strong>Inscrições prorrogadas até 28 de outubro!</strong> Aproveite e garanta sua vaga no Encontro.</p>
-                <p class="aviso-prorrogacao aviso-prorrogacao--hero" data-na-hora-aviso hidden>📍 <strong>Ainda dá tempo!</strong> Inscrições abertas até o dia do evento — faça a sua pelo site, inclusive na hora.</p>
-
-                <div class="hero__countdown" id="countdown" aria-hidden="true">
-                    <div class="countdown__item">
-                        <span class="countdown__num" data-cd="dias">00</span>
-                        <span class="countdown__label">dias</span>
-                    </div>
-                    <div class="countdown__item">
-                        <span class="countdown__num" data-cd="horas">00</span>
-                        <span class="countdown__label">h</span>
-                    </div>
-                    <div class="countdown__item">
-                        <span class="countdown__num" data-cd="min">00</span>
-                        <span class="countdown__label">min</span>
-                    </div>
-                    <div class="countdown__item">
-                        <span class="countdown__num" data-cd="seg">00</span>
-                        <span class="countdown__label">s</span>
-                    </div>
+                <p class="hero__meta">31 de outubro de 2026 · Urca, Rio de Janeiro · inscrições encerradas</p>
+                <div class="hero__ctas" data-turma-link hidden>
+                    <a href="#turma" class="cta-button">Encontre sua turma</a>
                 </div>
-                <p class="hero__countdown-caption"><span data-na-hora="até o início do Encontro — inscrições também na hora, pelo site">até o fim das inscrições — <span data-prorroga="28 de outubro">24 de outubro</span></span></p>
-                <p class="sr-only"><span data-na-hora="Inscrições abertas até o dia do evento, 31 de outubro de 2026, inclusive na hora pelo site.">Inscrições abertas até <span data-prorroga="28 de outubro">24 de outubro</span> de 2026.</span></p>
+                <dl class="hero__numeros" id="hero-numeros" hidden>
+                    <div><dt>formados</dt><dd data-num="formados">—</dd></div>
+                    <div><dt>turmas</dt><dd data-num="turmas">—</dd></div>
+                    <div><dt>pessoas no total</dt><dd data-num="pessoas">—</dd></div>
+                </dl>
+            </div>
+        </section>
 
-                <div class="hero__ctas">
-                    <a href="inscricao.html" class="cta-button">Inscreva-se Agora</a>
-                    <a href="#program" class="cta-button cta-button--outline">Ver Programação</a>
+        <!-- ── SUA TURMA (cereja) ── -->
+        <section class="section section--escura" id="turma" hidden>
+            <div class="container">
+                <header class="sec-head">
+                    <span class="sec-num">01</span>
+                    <h2 class="sec-title">Sua turma no Encontro 2026</h2>
+                    <span class="faixa" aria-hidden="true"></span>
+                </header>
+                <div class="turma">
+                    <div class="turma__escolha rv">
+                        <label for="turma-ano" class="turma__label">Ano de formação na EsEFEx</label>
+                        <select id="turma-ano" class="turma__select">
+                            <option value="">Escolha o ano</option>
+                        </select>
+                        <div class="turma__resultado" id="turma-resultado" aria-live="polite">
+                            <p class="turma__dica">Escolha o ano para ver quantos da sua turma estiveram no Encontro.</p>
+                        </div>
+                        <div class="turma__formacao" id="turma-formacao" aria-hidden="true"></div>
+                    </div>
+                    <div class="turma__ranking rv">
+                        <h3 class="turma__ranking-titulo">Turmas mais presentes</h3>
+                        <ol class="ranking" id="turma-ranking"></ol>
+                        <p class="turma__nota">Contamos as inscrições pagas, pelo ano de formação informado. Só números, sem nomes.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- ── SOBRE ── -->
-        <section class="section section--alt" id="about">
+        <section class="section" id="about">
             <div class="container">
-                <h2 class="section-title">Sobre o Encontro</h2>
+                <header class="sec-head">
+                    <span class="sec-num" data-sec-num>02</span>
+                    <h2 class="sec-title">Sobre o Encontro</h2>
+                    <span class="faixa" aria-hidden="true"></span>
+                </header>
                 <div class="about-content">
-                    <div class="about-text">
-                        <p>O Encontro Nacional dos Calções Pretos é um evento único que reúne todos os militares formados em Educação Física pela prestigiosa Escola de Educação Física do Exército (EsEFEx).</p>
-                        <p>Este encontro representa mais do que uma reunião profissional - é uma celebração da tradição, da excelência e do espírito de corpo que caracteriza os "Calções Pretos".</p>
-                        <p>Durante o evento, os participantes terão a oportunidade de trocar experiências, discutir inovações na área da Educação Física, fortalecer os laços de camaradagem e honrar a rica tradição do ensino metódico e racional da Educação Física no Brasil.</p>
+                    <div class="about-text rv">
+                        <p class="about-lead">O Encontro Nacional dos Calções Pretos reúne os militares formados em Educação Física pela Escola de Educação Física do Exército (EsEFEx).</p>
+                        <p>Mais do que uma reunião profissional, é uma celebração da tradição, da excelência e do espírito de corpo que caracteriza os "Calções Pretos".</p>
+                        <p>Os participantes trocam experiências, discutem inovações na Educação Física, fortalecem os laços de camaradagem e honram a tradição do ensino metódico e racional da Educação Física no Brasil.</p>
                     </div>
-                    <div class="about-image">
-                        <img src="images/logos/layout.jpg" alt="Cartaz oficial do Encontro Nacional dos Calções Pretos 2026" loading="lazy">
-                    </div>
+                    <figure class="about-image rv">
+                        <img src="images/web/layout.webp" alt="Cartaz oficial do Encontro Nacional dos Calções Pretos 2026" width="1400" height="1400" loading="lazy">
+                    </figure>
                 </div>
             </div>
         </section>
 
-        <!-- ── INFORMAÇÕES DO EVENTO ── -->
-        <section class="section" id="event-info">
+        <!-- ── O DIA: informações + programação ── -->
+        <section class="section section--papel" id="program">
             <div class="container">
-                <h2 class="section-title">Informações do Evento</h2>
-                <div class="event-info">
-                    <div class="info-card">
-                        <h3>📅 Data</h3>
-                        <p>31 de Outubro de 2026<br>Sábado</p>
-                    </div>
-                    <div class="info-card">
-                        <h3>🕒 Horário</h3>
-                        <p>Das 09h às 15h</p>
-                    </div>
-                    <div class="info-card">
-                        <h3>🏛️ Local</h3>
-                        <p>Escola de Educação Física do Exército<br>Rio de Janeiro - RJ</p>
-                    </div>
-                </div>
-            </div>
-        </section>
+                <header class="sec-head">
+                    <span class="sec-num" data-sec-num>03</span>
+                    <h2 class="sec-title">O dia do Encontro</h2>
+                    <span class="faixa" aria-hidden="true"></span>
+                </header>
 
-        <!-- ── PROGRAMAÇÃO ── -->
-        <section class="section section--alt" id="program">
-            <div class="container">
-                <h2 class="section-title">Programação</h2>
-                <h3 class="program-day">Dia 31 de Outubro — Sábado</h3>
+                <dl class="ficha rv" id="event-info">
+                    <div class="ficha__item"><dt>Data</dt><dd>31 de outubro de 2026, sábado</dd></div>
+                    <div class="ficha__item"><dt>Horário</dt><dd>Das 9h às 15h</dd></div>
+                    <div class="ficha__item"><dt>Local</dt><dd>Escola de Educação Física do Exército, Urca — RJ</dd></div>
+                </dl>
 
                 <div class="program-groups">
-                    <div class="program-group">
-                        <h4 class="program-group__title">Atividades esportivas de participação voluntária</h4>
+                    <div class="program-group rv">
+                        <h3 class="program-group__title">Atividades esportivas de participação voluntária</h3>
                         <div class="program-row">
                             <span class="program-row__time">08:00 — 09:30</span>
                             <span class="program-row__activity">Beach Tênis</span>
@@ -214,8 +202,8 @@
                         </div>
                     </div>
 
-                    <div class="program-group program-group--destaque">
-                        <h4 class="program-group__title">Atividades Principais do Evento</h4>
+                    <div class="program-group program-group--destaque rv">
+                        <h3 class="program-group__title">Atividades principais do evento</h3>
                         <div class="program-row">
                             <span class="program-row__time">09:00 — 10:30</span>
                             <span class="program-row__activity">Recepção dos participantes e entrega de kits</span>
@@ -238,8 +226,8 @@
                         </div>
                     </div>
 
-                    <div class="program-group">
-                        <h4 class="program-group__title">Atividades Paralelas</h4>
+                    <div class="program-group rv">
+                        <h3 class="program-group__title">Atividades paralelas</h3>
                         <div class="program-row">
                             <span class="program-row__time">10:00 — 15:00</span>
                             <span class="program-row__activity">Funcionamento do Espaço Kids</span>
@@ -250,121 +238,106 @@
             </div>
         </section>
 
-        <!-- ── INSCRIÇÃO ── -->
-        <section class="section" id="registration">
-            <div class="container">
-                <h2 class="section-title">Inscrição</h2>
-                <div class="info-card registration-card">
-                    <ul>
-                        <li><strong>Inclui:</strong> Almoço, refrigerante, água, suco e chopp <strong>(Não inclui: produtos oficiais)</strong></li>
-                        <li><strong>Adulto:</strong> R$ 70,00</li>
-                        <li><strong>Associados da AsEFEx:</strong> R$ 50,00</li>
-                        <li><strong>Crianças de 09 a 14 anos:</strong> R$ 40,00</li>
-                        <li><strong>Crianças de até 08 anos:</strong> Isentos</li>
-                    </ul>
-                    <p class="aviso-prorrogacao" data-prorroga-aviso hidden>🎉 <strong>Inscrições prorrogadas!</strong> Ainda dá tempo: aproveite e garanta sua vaga.</p>
-                    <p class="aviso-prorrogacao" data-na-hora-aviso hidden>📍 <strong>Ainda dá tempo!</strong> Dá para se inscrever até o dia do evento, inclusive na hora, pelo site.</p>
-                    <p class="prazo"><strong>Prazo:</strong> <span data-na-hora="Até o dia do evento (31 de Outubro), inclusive na hora pelo site">Até <span data-prorroga="28 de Outubro">24 de Outubro</span> de 2026</span></p>
-                    <p class="prazo-countdown" id="countdown-inscricao"></p>
-                    <a href="inscricao.html" class="cta-button">Inscrever-se</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- ── PRODUTOS OFICIAIS ── -->
-        <section class="section section--alt" id="produtos">
-            <div class="container">
-                <h2 class="section-title">Produtos Oficiais</h2>
-                <div class="produtos-lista">
-                    <div class="produto">
-                        <h3>Camiseta Masculina</h3>
-                        <img class="produto__img" src="images/produtos/masc.jpeg" alt="Camiseta Masculina do Encontro (frente e costas)" loading="lazy">
-                        <p class="produto__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada. Na foto, o modelo veste tamanho M.</p>
-                        <p class="produto__preco">R$ 65,00</p>
-                    </div>
-                    <div class="produto">
-                        <h3>Camiseta Feminina</h3>
-                        <img class="produto__img" src="images/produtos/fem.jpeg" alt="Camiseta Feminina do Encontro (frente e costas)" loading="lazy">
-                        <p class="produto__desc">Camiseta Prime (Malha Premium). 100% algodão, fio 30.1 penteado, costura dupla, gola e mangas reforçadas, pré-lavada. Na foto, a modelo veste tamanho P.</p>
-                        <p class="produto__preco">R$ 65,00</p>
-                    </div>
-                    <div class="produto">
-                        <h3>Velame</h3>
-                        <img class="produto__img" src="images/produtos/velame1.jpeg" alt="Velame do Encontro" loading="lazy">
-                        <p class="produto__preco">R$ 35,00</p>
-                    </div>
-                    <div class="produto">
-                        <h3>Garrafa</h3>
-                        <img class="produto__img" src="images/produtos/garrafa1.jpeg" alt="Garrafa do Encontro" loading="lazy">
-                        <p class="produto__preco">R$ 80,00</p>
-                    </div>
-                    <div class="produto">
-                        <h3>Moeda</h3>
-                        <img class="produto__img" src="images/produtos/moeda1.png" alt="Moeda comemorativa do Encontro" loading="lazy">
-                        <p class="produto__preco">R$ 60,00</p>
-                    </div>
-                    <div class="produto">
-                        <h3>Boné</h3>
-                        <img class="produto__img" src="images/produtos/bone1.jpeg" alt="Boné do Encontro" loading="lazy">
-                        <p class="produto__preco">R$ 35,00</p>
-                    </div>
-                </div>
-                <p class="produtos-aviso">A loja online foi encerrada. Obrigado a todos que garantiram seus produtos!</p>
-                <div style="text-align:center; margin-top:1.5rem;">
-                    <a href="loja.html" class="cta-button">Ver aviso da Loja</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- ── GALERIA ── -->
+        <!-- ── GALERIA (um ano por vez) ── -->
         <section class="section" id="galeria">
             <div class="container">
-                <h2 class="section-title">Galeria de Encontros Anteriores</h2>
-                <div class="galeria-carrosseis">
-                    <div class="galeria-carrossel-box">
-                        <h3>Encontro 2023</h3>
-                        <div class="carousel">
-                            <button class="carousel-btn" data-galeria="2023" data-dir="-1" aria-label="Imagem anterior — 2023">&#10094;</button>
-                            <img class="carousel-img" id="img-galeria-2023" src="images/galeria/2023/Imagem1.jpg" alt="Foto do Encontro de 2023" loading="lazy">
-                            <button class="carousel-btn" data-galeria="2023" data-dir="1" aria-label="Próxima imagem — 2023">&#10095;</button>
+                <header class="sec-head">
+                    <span class="sec-num" data-sec-num>04</span>
+                    <h2 class="sec-title">Encontros anteriores</h2>
+                    <span class="faixa" aria-hidden="true"></span>
+                </header>
+                <div class="galeria rv">
+                    <div class="galeria__anos" role="group" aria-label="Ano do Encontro">
+                        <button type="button" class="galeria__ano" data-ano="2025" aria-pressed="true">2025</button>
+                        <button type="button" class="galeria__ano" data-ano="2024" aria-pressed="false">2024</button>
+                        <button type="button" class="galeria__ano" data-ano="2023" aria-pressed="false">2023</button>
+                    </div>
+                    <div class="galeria__palco">
+                        <img class="galeria__img" id="galeria-img" src="images/web/2025-imagem1.webp" alt="Foto do Encontro de 2025" width="1600" height="1067" loading="lazy">
+                        <div class="galeria__controles">
+                            <button type="button" class="galeria__btn" data-dir="-1" aria-label="Foto anterior">&#8592;</button>
+                            <span class="galeria__contador" id="galeria-contador" aria-live="polite">1 / 6</span>
+                            <button type="button" class="galeria__btn" data-dir="1" aria-label="Próxima foto">&#8594;</button>
                         </div>
                     </div>
-                    <div class="galeria-carrossel-box">
-                        <h3>Encontro 2024</h3>
-                        <div class="carousel">
-                            <button class="carousel-btn" data-galeria="2024" data-dir="-1" aria-label="Imagem anterior — 2024">&#10094;</button>
-                            <img class="carousel-img" id="img-galeria-2024" src="images/galeria/2024/Imagem1.jpg" alt="Foto do Encontro de 2024" loading="lazy">
-                            <button class="carousel-btn" data-galeria="2024" data-dir="1" aria-label="Próxima imagem — 2024">&#10095;</button>
-                        </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── INSCRIÇÃO E LOJA (encerradas) ── -->
+        <section class="section section--papel" id="registration">
+            <div class="container">
+                <header class="sec-head">
+                    <span class="sec-num" data-sec-num>05</span>
+                    <h2 class="sec-title">Inscrição e loja</h2>
+                    <span class="faixa" aria-hidden="true"></span>
+                </header>
+                <div class="encerrado">
+                    <div class="encerrado__bloco rv">
+                        <h3 class="encerrado__titulo">Inscrição <span class="selo">encerrada</span></h3>
+                        <p class="encerrado__inclui">Incluía almoço, refrigerante, água, suco e chopp (não incluía os produtos oficiais).</p>
+                        <dl class="precos">
+                            <div><dt>Adulto</dt><dd>R$ 70,00</dd></div>
+                            <div><dt>Associados da AsEFEx</dt><dd>R$ 50,00</dd></div>
+                            <div><dt>Crianças de 9 a 14 anos</dt><dd>R$ 40,00</dd></div>
+                            <div><dt>Crianças de até 8 anos</dt><dd>Isentas</dd></div>
+                        </dl>
                     </div>
-                    <div class="galeria-carrossel-box">
-                        <h3>Encontro 2025</h3>
-                        <div class="carousel">
-                            <button class="carousel-btn" data-galeria="2025" data-dir="-1" aria-label="Imagem anterior — 2025">&#10094;</button>
-                            <img class="carousel-img" id="img-galeria-2025" src="images/galeria/2025/Imagem1.JPG" alt="Foto do Encontro de 2025" loading="lazy">
-                            <button class="carousel-btn" data-galeria="2025" data-dir="1" aria-label="Próxima imagem — 2025">&#10095;</button>
-                        </div>
+                    <div class="encerrado__bloco rv" id="produtos">
+                        <h3 class="encerrado__titulo">Loja oficial <span class="selo">encerrada</span></h3>
+                        <ul class="produtos-lista">
+                            <li class="produto">
+                                <img class="produto__img" src="images/web/masc.webp" alt="Camiseta Masculina do Encontro (frente e costas)" width="1280" height="854" loading="lazy">
+                                <span class="produto__nome">Camiseta Masculina</span>
+                                <span class="produto__preco">R$ 65,00</span>
+                            </li>
+                            <li class="produto">
+                                <img class="produto__img" src="images/web/fem.webp" alt="Camiseta Feminina do Encontro (frente e costas)" width="1280" height="854" loading="lazy">
+                                <span class="produto__nome">Camiseta Feminina</span>
+                                <span class="produto__preco">R$ 65,00</span>
+                            </li>
+                            <li class="produto">
+                                <img class="produto__img" src="images/web/velame1.webp" alt="Velame do Encontro" width="720" height="1088" loading="lazy">
+                                <span class="produto__nome">Velame</span>
+                                <span class="produto__preco">R$ 35,00</span>
+                            </li>
+                            <li class="produto">
+                                <img class="produto__img" src="images/web/garrafa1.webp" alt="Garrafa do Encontro" width="765" height="759" loading="lazy">
+                                <span class="produto__nome">Garrafa</span>
+                                <span class="produto__preco">R$ 80,00</span>
+                            </li>
+                            <li class="produto">
+                                <img class="produto__img" src="images/web/moeda1.webp" alt="Moeda comemorativa do Encontro" width="1552" height="727" loading="lazy">
+                                <span class="produto__nome">Moeda</span>
+                                <span class="produto__preco">R$ 60,00</span>
+                            </li>
+                            <li class="produto">
+                                <img class="produto__img" src="images/web/bone1.webp" alt="Boné do Encontro" width="600" height="600" loading="lazy">
+                                <span class="produto__nome">Boné</span>
+                                <span class="produto__preco">R$ 35,00</span>
+                            </li>
+                        </ul>
+                        <p class="produtos-aviso">A loja online foi encerrada. Obrigado a todos que garantiram seus produtos!</p>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- ── CONTATO ── -->
-        <section class="section section--alt" id="contact">
+        <section class="section" id="contact">
             <div class="container">
-                <h2 class="section-title">Contato</h2>
+                <header class="sec-head">
+                    <span class="sec-num" data-sec-num>06</span>
+                    <h2 class="sec-title">Contato</h2>
+                    <span class="faixa" aria-hidden="true"></span>
+                </header>
                 <div class="contact-content">
-                    <div class="contact-card">
-                        <h3>📞 Informações</h3>
-                        <p><strong>Email:</strong><br>
-                           <a href="mailto:encontrocalcaopreto@gmail.com">encontrocalcaopreto@gmail.com</a></p>
-                        <p><strong>Telefone:</strong><br>
-                           <a href="tel:+552125862200">(21) 2586-2200</a></p>
-                        <p><strong>Endereço:</strong><br>
-                           Escola de Educação Física do Exército<br>
-                           Urca - Rio de Janeiro/RJ</p>
-                    </div>
-                    <div class="contact-map">
+                    <dl class="contato rv">
+                        <div><dt>E-mail</dt><dd><a href="mailto:encontrocalcaopreto@gmail.com">encontrocalcaopreto@gmail.com</a></dd></div>
+                        <div><dt>Telefone</dt><dd><a href="tel:+552125862200">(21) 2586-2200</a></dd></div>
+                        <div><dt>Endereço</dt><dd>Escola de Educação Física do Exército<br>Urca — Rio de Janeiro/RJ</dd></div>
+                    </dl>
+                    <div class="contact-map rv">
                         <iframe
                             src="https://www.google.com/maps?q=Escola+de+Educa%C3%A7%C3%A3o+F%C3%ADsica+do+Ex%C3%A9rcito,+Urca,+Rio+de+Janeiro&output=embed"
                             title="Mapa — Escola de Educação Física do Exército, Urca, Rio de Janeiro"
@@ -379,8 +352,8 @@
 
     <!-- ── RODAPÉ ── -->
     <footer class="site-footer">
-        <div class="container">
-            <p>&copy; 2026 Encontro Nacional dos Calções Pretos. Todos os direitos reservados.</p>
+        <div class="container site-footer__inner">
+            <p>&copy; 2026 Encontro Nacional dos Calções Pretos</p>
             <p class="footer-links"><a href="privacidade.html">Política de Privacidade</a></p>
         </div>
     </footer>
@@ -388,11 +361,11 @@
     <!-- ── MODAL DE IMAGEM ── -->
     <div class="modal-img-bg" id="modal-img-bg" role="dialog" aria-modal="true" aria-label="Imagem ampliada">
         <button class="modal-close" id="modal-close" aria-label="Fechar imagem">&times;</button>
-        <button class="modal-nav modal-nav--prev" id="modal-prev" aria-label="Imagem anterior">&#10094;</button>
+        <button class="modal-nav modal-nav--prev" id="modal-prev" aria-label="Imagem anterior">&#8592;</button>
         <img id="modal-img" src="" alt="Imagem ampliada">
-        <button class="modal-nav modal-nav--next" id="modal-next" aria-label="Próxima imagem">&#10095;</button>
+        <button class="modal-nav modal-nav--next" id="modal-next" aria-label="Próxima imagem">&#8594;</button>
     </div>
 
-    <script src="js/script.js" defer></script>
+    <script src="js/script.js?v=20261106" defer></script>
 </body>
 </html>
